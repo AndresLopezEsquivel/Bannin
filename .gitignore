@@ -218,3 +218,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dataset files: the data stays outside the repo (competition rules)
+*.csv
+*.parquet
+*.zip
