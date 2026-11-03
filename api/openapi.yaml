@@ -1,0 +1,25 @@
+openapi: 3.1.0
+
+info:
+  title: Bannin Scoring API
+  version: 0.1.0
+  summary: Real-time fraud scoring for card-not-present payments.
+  description: >
+    The merchant's backend calls Bannin during checkout, before it
+    submits the payment for authorization, and gets back a decision.
+
+# Every request must carry an API key as a bearer token. Bannin
+# accepts HTTPS only.
+security:
+  - bearerAuth: []
+
+paths: {}
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Send the API key as `Authorization: Bearer <key>`. A missing or
+        invalid key gets a 401 response.
