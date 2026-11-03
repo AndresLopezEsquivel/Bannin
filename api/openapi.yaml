@@ -42,6 +42,8 @@ components:
       description: >
         One payment attempt to score. Fields not listed here are ignored
         and reported in `ignored_fields`, so they don't cause a rejection.
+        The same applies to an optional field with an invalid value: the
+        payment is scored as if the field had not been sent.
       required: [payment_id, amount, currency, card_id]
       properties:
         payment_id:
@@ -71,6 +73,45 @@ components:
           minLength: 1
           maxLength: 255
           pattern: '\S'
+        # Optional: an invalid value is ignored, not rejected.
+        attempted_at:
+          type: string
+          format: date-time  # RFC 3339 with an offset
+          description: >
+            When the customer attempted the payment, by the merchant's
+            clock, such as `2026-10-30T14:05:00Z`. If omitted, Bannin
+            uses the time it received the request.
+        order_id:
+          type: string
+          description: The merchant's ID for the order.
+          minLength: 1
+          maxLength: 255
+        card_bin:
+          type: string
+          description: The first 6 or 8 digits of the card number.
+          pattern: '^([0-9]{6}|[0-9]{8})$'
+        card_last4:
+          type: string
+          description: The last four digits of the card number.
+          pattern: '^[0-9]{4}$'
+        customer_id:
+          type: string
+          description: The merchant's ID for the customer's account.
+          minLength: 1
+          maxLength: 255
+        name:
+          type: string
+          description: The customer's full name.
+          minLength: 1
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          description: The customer's email address.
+        phone:
+          type: string
+          description: The customer's phone number in E.164 format, such as `+14155550100`.
+          pattern: '^\+[0-9]{1,15}$'
     # Fields are added in step 6.
     ScoreResponse:
       type: object
