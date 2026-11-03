@@ -37,9 +37,41 @@ paths:
 
 components:
   schemas:
-    # Fields are added in the next steps.
     ScoreRequest:
       type: object
+      description: >
+        One payment attempt to score. Fields not listed here are ignored
+        and reported in `ignored_fields`, so they don't cause a rejection.
+      required: [payment_id, amount, currency, card_id]
+      properties:
+        payment_id:
+          type: string
+          description: >
+            The merchant's ID for this payment attempt. Unique to one
+            attempt: a retry of the same purchase gets a new ID. Sending
+            an ID that was already scored returns the original decision.
+          minLength: 1
+          maxLength: 255
+          pattern: '\S'  # at least one non-space character
+        amount:
+          type: integer
+          description: >
+            The amount charged, in the currency's smallest unit, such as
+            1000 for $10.00.
+          minimum: 1
+        currency:
+          type: string
+          description: A three-letter ISO 4217 code in uppercase, such as `USD`.
+          pattern: '^[A-Z]{3}$'
+        card_id:
+          type: string
+          description: >
+            A stable token for the card, supplied by the merchant. The same
+            card always has the same ID. Never the card number.
+          minLength: 1
+          maxLength: 255
+          pattern: '\S'
+    # Fields are added in step 6.
     ScoreResponse:
       type: object
 
