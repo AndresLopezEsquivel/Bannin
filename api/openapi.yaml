@@ -13,9 +13,37 @@ info:
 security:
   - bearerAuth: []
 
-paths: {}
+paths:
+  /score:
+    post:
+      operationId: scorePayment
+      summary: Score a payment attempt
+      description: >
+        Returns a decision (approve, review, or decline) for one payment
+        attempt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoreRequest'
+      responses:
+        '200':
+          description: The payment was scored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreResponse'
 
 components:
+  schemas:
+    # Fields are added in the next steps.
+    ScoreRequest:
+      type: object
+    ScoreResponse:
+      type: object
+
+
   securitySchemes:
     bearerAuth:
       type: http
