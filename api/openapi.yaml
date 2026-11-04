@@ -27,6 +27,24 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ScoreRequest'
+            examples:
+              required_only:
+                summary: Only the four required fields
+                value:
+                  payment_id: pay_001
+                  amount: 1000
+                  currency: USD
+                  card_id: card_abc
+              with_optional:
+                summary: Some optional fields
+                value:
+                  payment_id: pay_002
+                  amount: 4599
+                  currency: USD
+                  card_id: card_abc
+                  card_bin: '42424242'
+                  email: test@example.com
+                  ip_address: 192.0.2.1
       responses:
         '200':
           description: The payment was scored.
@@ -34,6 +52,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScoreResponse'
+              examples:
+                approve:
+                  summary: A low-risk payment
+                  value:
+                    payment_id: pay_001
+                    decision: approve
+                    score: 3.2071
+                    reasons: []
+                    ignored_fields: []
+                review_with_ignored_field:
+                  summary: Flagged for review, with one ignored field
+                  value:
+                    payment_id: pay_003
+                    decision: review
+                    score: 72.4813
+                    reasons: []
+                    ignored_fields:
+                      - field: card_bin
+                        code: invalid
+                        message: must be 6 or 8 digits
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -265,6 +303,23 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          examples:
+            missing_field:
+              summary: A required field is missing
+              value:
+                error:
+                  type: invalid_request
+                  code: parameter_missing
+                  message: payment_id is required.
+                  field: payment_id
+            invalid_amount:
+              summary: A required field is invalid
+              value:
+                error:
+                  type: invalid_request
+                  code: parameter_invalid
+                  message: amount must be a whole number from 1 to 99999999.
+                  field: amount
     Unauthorized:
       description: The API key is missing or invalid. The request was not scored or logged.
       headers:
@@ -277,6 +332,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          examples:
+            missing_key:
+              summary: No API key was sent
+              value:
+                error:
+                  type: authentication
+                  code: api_key_missing
+                  message: 'Send an API key as `Authorization: Bearer <key>`.'
     Conflict:
       description: >
         This payment_id was already scored with different fields. Use a
@@ -285,6 +348,15 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          examples:
+            payment_id_reused:
+              summary: A payment_id was resent with a different amount
+              value:
+                error:
+                  type: idempotency
+                  code: payment_id_reused
+                  message: This payment_id was already scored with different fields.
+                  field: payment_id
     InternalError:
       description: >
         An unexpected error in Bannin. Retrying with the same payment_id
