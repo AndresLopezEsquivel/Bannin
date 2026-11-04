@@ -69,8 +69,9 @@ components:
           type: integer
           description: >
             The amount charged, in the currency's smallest unit, such as
-            1000 for $10.00.
+            1000 for $10.00. At most 99999999 in every currency.
           minimum: 1
+          maximum: 99999999
         currency:
           type: string
           description: A three-letter ISO 4217 code in uppercase, such as `USD`.
