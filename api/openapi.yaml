@@ -112,6 +112,55 @@ components:
           type: string
           description: The customer's phone number in E.164 format, such as `+14155550100`.
           pattern: '^\+[0-9]{1,15}$'
+        ip_address:
+          type: string
+          description: The customer's IP address, IPv4 or IPv6.
+          anyOf:
+            - format: ipv4
+            - format: ipv6
+        device_id:
+          type: string
+          description: The merchant's ID for the customer's device.
+          minLength: 1
+          maxLength: 255
+        user_agent:
+          type: string
+          description: >
+            The `User-Agent` header from the customer's browser or app,
+            copied unchanged by the merchant's server.
+          minLength: 1
+          maxLength: 1024
+        billing_address:
+          $ref: '#/components/schemas/Address'
+        shipping_address:
+          $ref: '#/components/schemas/Address'
+    Address:
+      type: object
+      description: A postal address. Every part is optional.
+      properties:
+        line1:
+          $ref: '#/components/schemas/AddressText'
+          description: Street, PO box, or company name.
+        line2:
+          $ref: '#/components/schemas/AddressText'
+          description: Apartment, suite, unit, or building.
+        city:
+          $ref: '#/components/schemas/AddressText'
+          description: City, district, town, or village.
+        region:
+          $ref: '#/components/schemas/AddressText'
+          description: State, county, province, or region, as free text.
+        postal_code:
+          $ref: '#/components/schemas/AddressText'
+          description: ZIP or postal code.
+        country:
+          type: string
+          description: An ISO 3166-1 alpha-2 code in uppercase, such as `US`.
+          pattern: '^[A-Z]{2}$'
+    AddressText:
+      type: string
+      minLength: 1
+      maxLength: 255
     # Fields are added in step 6.
     ScoreResponse:
       type: object
