@@ -36,6 +36,14 @@ paths:
                 $ref: '#/components/schemas/ScoreResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
 components:
   schemas:
@@ -252,6 +260,43 @@ components:
   responses:
     BadRequest:
       description: The request can't be scored. Fix it and resend.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: The API key is missing or invalid. The request was not scored or logged.
+      headers:
+        WWW-Authenticate:
+          description: Always `Bearer`, the scheme the API expects.
+          schema:
+            type: string
+            const: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: >
+        This payment_id was already scored with different fields. Use a
+        new payment_id for a new payment attempt.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: >
+        An unexpected error in Bannin. Retrying with the same payment_id
+        is safe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: >
+        Bannin can't score payments right now, and no decision was made.
+        Retrying with the same payment_id is safe: if the payment was
+        already scored, the original decision is returned.
       content:
         application/json:
           schema:
