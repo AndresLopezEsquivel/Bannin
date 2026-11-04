@@ -161,9 +161,59 @@ components:
       type: string
       minLength: 1
       maxLength: 255
-    # Fields are added in step 6.
     ScoreResponse:
       type: object
+      description: The decision for one payment attempt. Every field is always present.
+      required: [payment_id, decision, score, reasons, ignored_fields]
+      properties:
+        payment_id:
+          type: string
+          description: The `payment_id` from the request, unchanged.
+        decision:
+          type: string
+          enum: [approve, review, decline]
+          description: >
+            What the merchant should do. `review` means approve and flag:
+            submit the payment as usual, and have a person check it later.
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: The fraud risk from 0 to 100, not rounded.
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reason'
+          description: Why the payment got its score. Always empty in this version.
+        ignored_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/IgnoredField'
+          description: Request fields that weren't used to score the payment.
+    Reason:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: A short, stable code for the reason.
+        message:
+          type: string
+          description: A plain-English explanation.
+    IgnoredField:
+      type: object
+      description: A request field that was ignored. Its value is never included.
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          description: The field's name, as a dot path for nested fields, such as `billing_address.country`.
+        code:
+          type: string
+          enum: [invalid, unrecognized]
+        message:
+          type: string
+          description: What was wrong, such as "must be 6 or 8 digits".
 
 
   securitySchemes:
