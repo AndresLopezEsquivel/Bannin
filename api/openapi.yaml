@@ -34,6 +34,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScoreResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
 components:
   schemas:
@@ -214,7 +216,46 @@ components:
         message:
           type: string
           description: What was wrong, such as "must be 6 or 8 digits".
+    Error:
+      type: object
+      description: >
+        Every error response has one error. If a request has several
+        problems, the API key is reported first, then the fields in the
+        order payment_id, amount, currency, card_id.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [type, code, message]
+          properties:
+            type:
+              type: string
+              enum: [invalid_request, authentication, idempotency, server_error]
+            code:
+              type: string
+              enum:
+                - parameter_missing    # missing, empty, or blank
+                - parameter_invalid    # wrong type or format
+                - body_invalid         # not a JSON object
+                - api_key_missing
+                - api_key_invalid
+                - payment_id_reused    # same payment_id, different fields
+                - internal_error
+                - service_unavailable  # can't score right now; retry later
+            message:
+              type: string
+              description: An explanation for the merchant's developers.
+            field:
+              type: string
+              description: The request field that caused the error, if one did.
 
+  responses:
+    BadRequest:
+      description: The request can't be scored. Fix it and resend.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
 
   securitySchemes:
     bearerAuth:
