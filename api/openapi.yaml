@@ -267,8 +267,8 @@ components:
       type: object
       description: >
         Every error response has one error. If a request has several
-        problems, the API key is reported first, then the fields in the
-        order payment_id, amount, currency, card_id.
+        problems, the API key is reported first, then the body, then the
+        fields in the order payment_id, amount, currency, card_id.
       required: [error]
       properties:
         error:
