@@ -22,3 +22,5 @@ jobs:
           version: 0.13.6
       - name: Validate the OpenAPI spec
         run: uvx openapi-spec-validator==0.9.0 api/openapi.yaml
+      - name: Check the examples against their schemas
+        run: uv run --script scripts/check_examples.py
