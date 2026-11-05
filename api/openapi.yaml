@@ -1,0 +1,384 @@
+openapi: 3.1.0
+
+info:
+  title: Bannin Scoring API
+  version: 0.1.0
+  summary: Real-time fraud scoring for card-not-present payments.
+  description: >
+    The merchant's backend calls Bannin during checkout, before it
+    submits the payment for authorization, and gets back a decision.
+
+# Every request must carry an API key as a bearer token. Bannin
+# accepts HTTPS only.
+security:
+  - bearerAuth: []
+
+paths:
+  /score:
+    post:
+      operationId: scorePayment
+      summary: Score a payment attempt
+      description: >
+        Returns a decision (approve, review, or decline) for one payment
+        attempt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoreRequest'
+            examples:
+              required_only:
+                summary: Only the four required fields
+                value:
+                  payment_id: pay_001
+                  amount: 1000
+                  currency: USD
+                  card_id: card_abc
+              with_optional:
+                summary: Some optional fields
+                value:
+                  payment_id: pay_002
+                  amount: 4599
+                  currency: USD
+                  card_id: card_abc
+                  card_bin: '42424242'
+                  email: test@example.com
+                  ip_address: 192.0.2.1
+      responses:
+        '200':
+          description: The payment was scored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreResponse'
+              examples:
+                approve:
+                  summary: A low-risk payment
+                  value:
+                    payment_id: pay_001
+                    decision: approve
+                    score: 3.2071
+                    reasons: []
+                    ignored_fields: []
+                review_with_ignored_field:
+                  summary: Flagged for review, with one ignored field
+                  value:
+                    payment_id: pay_003
+                    decision: review
+                    score: 72.4813
+                    reasons: []
+                    ignored_fields:
+                      - field: card_bin
+                        code: invalid
+                        message: must be 6 or 8 digits
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  schemas:
+    ScoreRequest:
+      type: object
+      description: >
+        One payment attempt to score. Fields not listed here are ignored
+        and reported in `ignored_fields`, so they don't cause a rejection.
+        The same applies to an optional field with an invalid value: the
+        payment is scored as if the field had not been sent.
+      required: [payment_id, amount, currency, card_id]
+      properties:
+        payment_id:
+          type: string
+          description: >
+            The merchant's ID for this payment attempt. Unique to one
+            attempt: a retry of the same purchase gets a new ID. Sending
+            an ID that was already scored returns the original decision.
+          minLength: 1
+          maxLength: 255
+          pattern: '\S'  # at least one non-space character
+        amount:
+          type: integer
+          description: >
+            The amount charged, in the currency's smallest unit, such as
+            1000 for $10.00. At most 99999999 in every currency.
+          minimum: 1
+          maximum: 99999999
+        currency:
+          type: string
+          description: A three-letter ISO 4217 code in uppercase, such as `USD`.
+          pattern: '^[A-Z]{3}$'
+        card_id:
+          type: string
+          description: >
+            A stable token for the card, supplied by the merchant. The same
+            card always has the same ID. Never the card number.
+          minLength: 1
+          maxLength: 255
+          pattern: '\S'
+        # Optional: an invalid value is ignored, not rejected.
+        attempted_at:
+          type: string
+          format: date-time  # RFC 3339 with an offset
+          description: >
+            When the customer attempted the payment, by the merchant's
+            clock, such as `2026-10-30T14:05:00Z`. If omitted, Bannin
+            uses the time it received the request.
+        order_id:
+          type: string
+          description: The merchant's ID for the order.
+          minLength: 1
+          maxLength: 255
+        card_bin:
+          type: string
+          description: The first 6 or 8 digits of the card number.
+          pattern: '^([0-9]{6}|[0-9]{8})$'
+        card_last4:
+          type: string
+          description: The last four digits of the card number.
+          pattern: '^[0-9]{4}$'
+        customer_id:
+          type: string
+          description: The merchant's ID for the customer's account.
+          minLength: 1
+          maxLength: 255
+        name:
+          type: string
+          description: The customer's full name.
+          minLength: 1
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          description: The customer's email address.
+        phone:
+          type: string
+          description: The customer's phone number in E.164 format, such as `+14155550100`.
+          pattern: '^\+[0-9]{1,15}$'
+        ip_address:
+          type: string
+          description: The customer's IP address, IPv4 or IPv6.
+          anyOf:
+            - format: ipv4
+            - format: ipv6
+        device_id:
+          type: string
+          description: The merchant's ID for the customer's device.
+          minLength: 1
+          maxLength: 255
+        user_agent:
+          type: string
+          description: >
+            The `User-Agent` header from the customer's browser or app,
+            copied unchanged by the merchant's server.
+          minLength: 1
+          maxLength: 1024
+        billing_address:
+          $ref: '#/components/schemas/Address'
+        shipping_address:
+          $ref: '#/components/schemas/Address'
+    Address:
+      type: object
+      description: A postal address. Every part is optional.
+      properties:
+        line1:
+          $ref: '#/components/schemas/AddressText'
+          description: Street, PO box, or company name.
+        line2:
+          $ref: '#/components/schemas/AddressText'
+          description: Apartment, suite, unit, or building.
+        city:
+          $ref: '#/components/schemas/AddressText'
+          description: City, district, town, or village.
+        region:
+          $ref: '#/components/schemas/AddressText'
+          description: State, county, province, or region, as free text.
+        postal_code:
+          $ref: '#/components/schemas/AddressText'
+          description: ZIP or postal code.
+        country:
+          type: string
+          description: An ISO 3166-1 alpha-2 code in uppercase, such as `US`.
+          pattern: '^[A-Z]{2}$'
+    AddressText:
+      type: string
+      minLength: 1
+      maxLength: 255
+    ScoreResponse:
+      type: object
+      description: The decision for one payment attempt. Every field is always present.
+      required: [payment_id, decision, score, reasons, ignored_fields]
+      properties:
+        payment_id:
+          type: string
+          description: The `payment_id` from the request, unchanged.
+        decision:
+          type: string
+          enum: [approve, review, decline]
+          description: >
+            What the merchant should do. `review` means approve and flag:
+            submit the payment as usual, and have a person check it later.
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: The fraud risk from 0 to 100, not rounded.
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reason'
+          description: Why the payment got its score. Always empty in this version.
+        ignored_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/IgnoredField'
+          description: Request fields that weren't used to score the payment.
+    Reason:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: A short, stable code for the reason.
+        message:
+          type: string
+          description: A plain-English explanation.
+    IgnoredField:
+      type: object
+      description: A request field that was ignored. Its value is never included.
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          description: The field's name, as a dot path for nested fields, such as `billing_address.country`.
+        code:
+          type: string
+          enum: [invalid, unrecognized]
+        message:
+          type: string
+          description: What was wrong, such as "must be 6 or 8 digits".
+    Error:
+      type: object
+      description: >
+        Every error response has one error. If a request has several
+        problems, the API key is reported first, then the body, then the
+        fields in the order payment_id, amount, currency, card_id.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [type, code, message]
+          properties:
+            type:
+              type: string
+              enum: [invalid_request, authentication, idempotency, server_error]
+            code:
+              type: string
+              enum:
+                - parameter_missing    # missing, empty, or blank
+                - parameter_invalid    # wrong type or format
+                - body_invalid         # not a JSON object
+                - api_key_missing
+                - api_key_invalid
+                - payment_id_reused    # same payment_id, different fields
+                - internal_error
+                - service_unavailable  # can't score right now; retry later
+            message:
+              type: string
+              description: An explanation for the merchant's developers.
+            field:
+              type: string
+              description: The request field that caused the error, if one did.
+
+  responses:
+    BadRequest:
+      description: The request can't be scored. Fix it and resend.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missing_field:
+              summary: A required field is missing
+              value:
+                error:
+                  type: invalid_request
+                  code: parameter_missing
+                  message: payment_id is required.
+                  field: payment_id
+            invalid_amount:
+              summary: A required field is invalid
+              value:
+                error:
+                  type: invalid_request
+                  code: parameter_invalid
+                  message: amount must be a whole number from 1 to 99999999.
+                  field: amount
+    Unauthorized:
+      description: The API key is missing or invalid. The request was not scored or logged.
+      headers:
+        WWW-Authenticate:
+          description: Always `Bearer`, the scheme the API expects.
+          schema:
+            type: string
+            const: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missing_key:
+              summary: No API key was sent
+              value:
+                error:
+                  type: authentication
+                  code: api_key_missing
+                  message: 'Send an API key as `Authorization: Bearer <key>`.'
+    Conflict:
+      description: >
+        This payment_id was already scored with different fields. Use a
+        new payment_id for a new payment attempt.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            payment_id_reused:
+              summary: A payment_id was resent with a different amount
+              value:
+                error:
+                  type: idempotency
+                  code: payment_id_reused
+                  message: This payment_id was already scored with different fields.
+                  field: payment_id
+    InternalError:
+      description: >
+        An unexpected error in Bannin. Retrying with the same payment_id
+        is safe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: >
+        Bannin can't score payments right now, and no decision was made.
+        Retrying with the same payment_id is safe: if the payment was
+        already scored, the original decision is returned.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Send the API key as `Authorization: Bearer <key>`. A missing or
+        invalid key gets a 401 response.
