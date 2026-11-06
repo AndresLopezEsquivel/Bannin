@@ -1,0 +1,30 @@
+[project]
+name = "bannin"
+version = "0.1.0"
+description = "Real-time fraud scoring for card-not-present payments."
+requires-python = ">=3.14"
+# Lower bounds only: uv.lock holds the exact versions that get installed.
+dependencies = [
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
+]
+
+# Builds src/bannin/ into a package that uv installs into .venv/.
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+]
+
+# Linter and formatter. Rules: E (style errors), F (bugs such as unused
+# imports), I (import order), B (likely bugs), UP (older syntax).
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

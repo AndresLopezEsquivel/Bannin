@@ -34,3 +34,26 @@ jobs:
         run: uvx openapi-spec-validator==0.9.0 api/openapi.yaml
       - name: Check the examples against their schemas
         run: uv run --script scripts/check_examples.py
+
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: 0.13.6
+      # Installs Python (from .python-version) and the exact versions in
+      # uv.lock, dev tools included. Fails if uv.lock is out of date.
+      - name: Install dependencies from uv.lock
+        run: uv sync --locked
+      - name: Lint with ruff
+        run: uv run ruff check
+      - name: Check formatting with ruff
+        run: uv run ruff format --check
+      - name: Run the tests with pytest
+        run: uv run pytest
