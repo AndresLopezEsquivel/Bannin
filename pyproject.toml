@@ -1,0 +1,10 @@
+[project]
+name = "bannin"
+version = "0.1.0"
+description = "Real-time fraud scoring for card-not-present payments."
+requires-python = ">=3.14"
+# Lower bounds only: uv.lock holds the exact versions that get installed.
+dependencies = [
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
+]
