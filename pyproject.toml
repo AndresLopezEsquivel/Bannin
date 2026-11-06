@@ -18,4 +18,13 @@ build-backend = "uv_build"
 dev = [
     "httpx2>=2.16.0",
     "pytest>=9.2.0",
+    "ruff>=0.17.4",
 ]
+
+# Linter and formatter. Rules: E (style errors), F (bugs such as unused
+# imports), I (import order), B (likely bugs), UP (older syntax).
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

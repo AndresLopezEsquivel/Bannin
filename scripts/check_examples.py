@@ -32,12 +32,18 @@ def main() -> int:
     for path, media in media_types(doc):
         # Adding the components lets $refs such as '#/components/schemas/X' resolve.
         schema = {**media["schema"], "components": doc["components"]}
-        validator = Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER)
+        validator = Draft202012Validator(
+            schema, format_checker=Draft202012Validator.FORMAT_CHECKER
+        )
         for name, example in media["examples"].items():
             errors = [e.message for e in validator.iter_errors(example["value"])]
             checked += 1
             failed += bool(errors)
-            print(f"{'FAIL' if errors else 'ok  '} {path} {name}", *errors, sep="\n     " if errors else " ")
+            print(
+                f"{'FAIL' if errors else 'ok  '} {path} {name}",
+                *errors,
+                sep="\n     " if errors else " ",
+            )
     print(f"{checked} examples checked, {failed} failed")
     return 1 if failed or not checked else 0
 
