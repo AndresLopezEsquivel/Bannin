@@ -57,3 +57,35 @@ jobs:
         run: uv run ruff format --check
       - name: Run the tests with pytest
         run: uv run pytest
+
+  # Builds the image and starts the app and Postgres with compose.yaml,
+  # as on a developer's machine. Docker and Compose come with the runner.
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A new random password for each run. The value is never printed.
+      - name: Write a random Postgres password to .env
+        run: printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env
+      # Returns once both health checks (app's and db's) pass; fails if they don't within 60s.
+      - name: Build and start the containers
+        run: docker compose up --build --wait --wait-timeout 60
+      # Calls /health from the runner (not inside a container), through the published port.
+      - name: Call /health
+        run: curl --fail --silent --show-error http://127.0.0.1:8000/health
+      # Fails if the app runs as root.
+      - name: Check the app doesn't run as root
+        run: |
+          uid=$(docker compose exec -T app id -u)
+          echo "app UID: $uid"
+          test "$uid" != 0
+      - name: Show the container logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop and delete the containers and the volume
+        if: always()
+        run: docker compose down -v
