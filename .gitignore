@@ -223,3 +223,28 @@ __marimo__/
 *.csv
 *.parquet
 *.zip
+
+# Terraform. Based on https://github.com/github/gitignore/blob/main/Terraform.gitignore
+# The lock file .terraform.lock.hcl stays tracked.
+# Provider downloads (terraform init)
+.terraform/
+# State: only in S3 once a stack has a backend, but local during the bootstrap
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+# Variable values, such as the alert email
+*.tfvars
+*.tfvars.json
+# Saved plans (terraform plan -out): they can hold values in plain text
+*.tfplan
+# Local overrides of resources, never shared
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# CLI configuration, which can hold credentials
+.terraformrc
+terraform.rc
+# Written if Terraform crashes
+crash.log
+crash.*.log

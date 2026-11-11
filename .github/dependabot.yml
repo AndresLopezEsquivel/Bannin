@@ -47,6 +47,20 @@ updates:
     commit-message:
       prefix: ci
 
+  # Terraform providers in infra/costs (main.tf and .terraform.lock.hcl).
+  - package-ecosystem: terraform
+    directory: /infra/costs
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      terraform-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build
+
   # Python packages in pyproject.toml and uv.lock.
   - package-ecosystem: uv
     directory: /

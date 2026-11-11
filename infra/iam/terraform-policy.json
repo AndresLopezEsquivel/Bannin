@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BudgetManage",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ViewBudget",
+        "budgets:ModifyBudget",
+        "budgets:ListTagsForResource",
+        "budgets:TagResource",
+        "budgets:UntagResource"
+      ],
+      "Resource": "arn:aws:budgets::*:budget/bannin-monthly"
+    }
+  ]
+}
