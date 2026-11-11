@@ -34,6 +34,10 @@ RUN uv sync --locked --no-dev --no-editable
 
 # Stage 2: the final image. Keeps only .venv; leaves out uv, the source code and dev tools.
 FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
+# Names the repository the image is built from. GitHub's registry reads it to
+# link the image to that repository when the image is first pushed.
+# https://docs.github.com/en/packages/learn-github-packages/connecting-a-repository-to-a-package
+LABEL org.opencontainers.image.source=https://github.com/AndresLopezEsquivel/Bannin
 # Creates the system user bannin, with UID 10001 and no home directory.
 # We use this account so the app doesn't run as root.
 RUN useradd --system --uid 10001 --no-create-home bannin
