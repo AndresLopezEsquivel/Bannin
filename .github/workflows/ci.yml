@@ -130,3 +130,50 @@ jobs:
       - name: Stop and delete the containers and the volume
         if: always()
         run: docker compose down -v
+
+  # Builds the arm64 image that the AWS instance runs, and checks it. On a
+  # push to main, also publishes it to GitHub's container registry.
+  image:
+    needs: [api-spec, app, terraform, shell, container]
+    runs-on: ubuntu-24.04-arm  # native arm64, no emulation
+    timeout-minutes: 10
+    # Lets this job's token push packages. Pull requests get the same
+    # permission, but the two publishing steps below are skipped for them.
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/andreslopezesquivel/bannin
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Two tags for the same image: the commit hash, and main for the latest.
+      - name: Build the image
+        run: >-
+          docker build
+          --label "org.opencontainers.image.revision=$GITHUB_SHA"
+          --tag "$IMAGE:$GITHUB_SHA" --tag "$IMAGE:main" .
+      - name: Check the image is arm64
+        run: test "$(docker inspect --format '{{.Architecture}}' "$IMAGE:$GITHUB_SHA")" = arm64
+      - name: Start the app
+        run: docker run --detach --name app --publish 127.0.0.1:8000:8000 "$IMAGE:$GITHUB_SHA"
+      # Retries for up to about 30 seconds while the app starts.
+      - name: Call /health
+        run: curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:8000/health
+      - name: Check the app doesn't run as root
+        run: test "$(docker exec app id -u)" != 0
+      - name: Show the app logs
+        if: failure()
+        run: docker logs app
+      - name: Log in to GitHub's container registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: printf '%s' "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push both tags
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:main"
