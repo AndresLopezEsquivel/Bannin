@@ -7,6 +7,7 @@ Terraform code for Bannin's AWS resources.
 | Stack | Holds | Script |
 |---|---|---|
 | `costs/` | Monthly cost budget with email alerts | `scripts/infra-costs.sh` |
+| `app/` | Bannin's infrastructure (e.g., service's instance) | `scripts/infra-app.sh` |
 
 ## Every stack
 
