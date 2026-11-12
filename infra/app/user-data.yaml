@@ -1,0 +1,33 @@
+#cloud-config
+# Runs once, on the instance's first boot. Terraform replaces the
+# compose placeholder below before handing the file to the instance.
+package_update: true # runs apt update
+packages:
+  - docker.io # runs apt install docker.io
+  - docker-compose-v2 # adds the "docker compose" command
+
+# Decodes compose.yaml and the Caddyfile from base64 and writes them to
+# the instance.
+write_files:
+  - path: /opt/bannin/compose.yaml
+    encoding: b64
+    content: ${compose}
+  - path: /opt/bannin/Caddyfile
+    encoding: b64
+    content: ${caddyfile}
+
+# Runs after the packages are installed.
+runcmd:
+  # Reads the instance's public IP from the metadata service (IMDSv2: a
+  # session token first) and writes it, with the ACME directory URL, to
+  # the .env file Compose reads. If the IP can't be read, PUBLIC_IP is
+  # empty and Compose refuses to start.
+  - |
+    token=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token \
+      -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+    ip=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" \
+      http://169.254.169.254/latest/meta-data/public-ipv4)
+    printf 'PUBLIC_IP=%s\nACME_DIR=%s\n' "$ip" "${acme_dir}" \
+      > /opt/bannin/.env
+  # Pulls the images and starts the app and Caddy.
+  - docker compose -f /opt/bannin/compose.yaml up -d

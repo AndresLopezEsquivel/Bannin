@@ -82,6 +82,10 @@ jobs:
         run: terraform -chdir=infra/costs init -backend=false -input=false -lockfile=readonly
       - name: Validate the costs stack
         run: terraform -chdir=infra/costs validate
+      - name: Initialize the app stack
+        run: terraform -chdir=infra/app init -backend=false -input=false -lockfile=readonly
+      - name: Validate the app stack
+        run: terraform -chdir=infra/app validate
 
   shell:
     runs-on: ubuntu-latest
