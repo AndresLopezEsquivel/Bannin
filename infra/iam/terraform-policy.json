@@ -31,7 +31,9 @@
       "Action": "ec2:CreateSecurityGroup",
       "Resource": "arn:aws:ec2:us-east-1:*:security-group/*",
       "Condition": {
-        "StringEquals": { "aws:RequestTag/Project": "bannin" }
+        "StringEquals": {
+          "aws:RequestTag/Project": "bannin"
+        }
       }
     },
     {
@@ -67,7 +69,9 @@
       ],
       "Resource": "arn:aws:ec2:us-east-1:*:security-group/*",
       "Condition": {
-        "StringEquals": { "ec2:ResourceTag/Project": "bannin" }
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "bannin"
+        }
       }
     },
     {
@@ -78,6 +82,86 @@
         "ec2:RevokeSecurityGroupEgress"
       ],
       "Resource": "arn:aws:ec2:us-east-1:*:security-group-rule/*"
+    },
+    {
+      "Sid": "InstanceLaunch",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1:*:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Project": "bannin"
+        }
+      }
+    },
+    {
+      "Sid": "InstanceLaunchWithGroup",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1:*:security-group/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "bannin"
+        }
+      }
+    },
+    {
+      "Sid": "InstanceLaunchFromAmazonImage",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1::image/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:Owner": "amazon"
+        }
+      }
+    },
+    {
+      "Sid": "InstanceLaunchResources",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": [
+        "arn:aws:ec2:us-east-1:*:subnet/*",
+        "arn:aws:ec2:us-east-1:*:volume/*",
+        "arn:aws:ec2:us-east-1:*:network-interface/*"
+      ]
+    },
+    {
+      "Sid": "InstanceTagOnCreate",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": [
+        "arn:aws:ec2:us-east-1:*:instance/*",
+        "arn:aws:ec2:us-east-1:*:volume/*",
+        "arn:aws:ec2:us-east-1:*:network-interface/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": "RunInstances"
+        }
+      }
+    },
+    {
+      "Sid": "InstanceTerminate",
+      "Effect": "Allow",
+      "Action": "ec2:TerminateInstances",
+      "Resource": "arn:aws:ec2:us-east-1:*:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "bannin"
+        }
+      }
+    },
+    {
+      "Sid": "AppRolePass",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::*:role/bannin-app",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ec2.amazonaws.com"
+        }
+      }
     }
   ]
 }
