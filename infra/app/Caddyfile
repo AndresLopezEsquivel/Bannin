@@ -1,0 +1,34 @@
+# Serves the app over HTTPS on port 443 with a certificate for the
+# instance's public IP address. Compose sets PUBLIC_IP and ACME_DIR
+# from /opt/bannin/.env, which cloud-init writes at first boot.
+{
+	# Port 80 is closed, so no HTTP-to-HTTPS redirect is served.
+	auto_https disable_redirects
+	# Clients don't send a server name (SNI) when they connect to an IP
+	# address, so this tells Caddy which certificate to use for them.
+	default_sni {$PUBLIC_IP}
+	servers {
+		# `protocols` lists the HTTP versions Caddy's server supports:
+		# h1 is HTTP/1.1, h2 is HTTP/2. h3 (HTTP/3) is left out because
+		# it needs UDP port 443, which stays closed: the security group
+		# allows only TCP.
+		protocols h1 h2
+	}
+}
+
+https://{$PUBLIC_IP} {
+	tls {
+		# First choice: Let's Encrypt. IP address certificates need the
+		# "shortlived" profile. The check runs on port 443 (TLS-ALPN-01),
+		# since port 80 is closed.
+		issuer acme {
+			dir {$ACME_DIR}
+			# This profile accepts certificate requests for IP addresses.
+			profile shortlived
+			disable_http_challenge
+		}
+		# Fallback if Let's Encrypt fails: a self-signed certificate.
+		issuer internal
+	}
+	reverse_proxy app:8000
+}
