@@ -1,0 +1,5 @@
+#cloud-config
+# Runs once, on the instance's first boot.
+package_update: true # runs apt update
+packages:
+  - docker.io # runs apt install docker.io
