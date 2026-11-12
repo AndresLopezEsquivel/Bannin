@@ -31,3 +31,8 @@ Before the first run:
 scripts/infra-costs.sh up
 scripts/infra-costs.sh down
 ```
+
+## IAM
+
+`iam/` holds the IAM policies and roles that an admin sets up by hand
+in the IAM console. See `iam/README.md`.
