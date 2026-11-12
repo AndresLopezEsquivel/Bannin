@@ -35,11 +35,29 @@ data "aws_vpc" "default" {
   default = true
 }
 
-# The instance's firewall. No inbound rules yet: nothing can connect in.
+# The instance's firewall. The only inbound rule is HTTPS on port 443.
 resource "aws_security_group" "app" {
   name        = "bannin-app"
   description = "Bannin service instance"
   vpc_id      = data.aws_vpc.default.id
+}
+
+# Lets any IPv4 address connect to port 443 over TCP: clients reach the
+# service over HTTPS, and Let's Encrypt checks the certificate request
+# here. Port 80 stays closed, so nothing is served in plain text.
+resource "aws_vpc_security_group_ingress_rule" "https" {
+  security_group_id = aws_security_group.app.id
+  description       = "HTTPS from any IPv4 address"
+  # Says which kind of traffic the rule applies to:
+  # TCP, UDP, ICMP, or all protocols.
+  ip_protocol = "tcp"
+  # `from_port` and `to_port` are the two ends of a port range,
+  # not a source or a destination. Both refer to ports on the
+  # instance. Setting them to the same value opens a single port.
+  # For example, `from_port = 443` and `to_port = 443` opens only port 443.
+  from_port = 443
+  to_port   = 443
+  cidr_ipv4 = "0.0.0.0/0"
 }
 
 # Lets the instance open connections to any address, for example to pull the
