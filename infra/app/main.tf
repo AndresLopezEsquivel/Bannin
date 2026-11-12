@@ -80,7 +80,11 @@ resource "aws_instance" "app" {
   # Hands the instance a set of setup instructions to run when it first boots.
   # Then cloud-init handles the instructions. Cloud-init runs only on
   # first boot, so a change to the file replaces the instance.
-  user_data                   = file("${path.module}/user-data.yaml")
+  # templatefile replaces ${compose} in user-data.yaml with compose.yaml,
+  # base64-encoded, so a change to either file replaces the instance.
+  user_data = templatefile("${path.module}/user-data.yaml", {
+    compose = base64encode(file("${path.module}/compose.yaml"))
+  })
   user_data_replace_on_change = true
 
   # Controls the instance metadata service (IMDS).

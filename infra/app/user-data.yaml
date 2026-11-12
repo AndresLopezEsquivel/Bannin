@@ -1,5 +1,17 @@
 #cloud-config
-# Runs once, on the instance's first boot.
+# Runs once, on the instance's first boot. Terraform replaces the
+# compose placeholder below before handing the file to the instance.
 package_update: true # runs apt update
 packages:
   - docker.io # runs apt install docker.io
+  - docker-compose-v2 # adds the "docker compose" command
+
+# Decodes compose.yaml from base64 and writes it to the instance.
+write_files:
+  - path: /opt/bannin/compose.yaml
+    encoding: b64
+    content: ${compose}
+
+# Runs after the packages are installed: pulls the image and starts it.
+runcmd:
+  - docker compose -f /opt/bannin/compose.yaml up -d
