@@ -31,6 +31,14 @@ data "aws_ssm_parameter" "ubuntu_ami" {
   name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
 }
 
+# The ACME directory URL of each Let's Encrypt environment.
+locals {
+  acme_dirs = {
+    staging    = "https://acme-staging-v02.api.letsencrypt.org/directory"
+    production = "https://acme-v02.api.letsencrypt.org/directory"
+  }
+}
+
 data "aws_vpc" "default" {
   default = true
 }
@@ -98,10 +106,13 @@ resource "aws_instance" "app" {
   # Hands the instance a set of setup instructions to run when it first boots.
   # Then cloud-init handles the instructions. Cloud-init runs only on
   # first boot, so a change to the file replaces the instance.
-  # templatefile replaces ${compose} in user-data.yaml with compose.yaml,
-  # base64-encoded, so a change to either file replaces the instance.
+  # templatefile replaces the placeholders in user-data.yaml: compose.yaml
+  # and the Caddyfile, base64-encoded, and the chosen ACME directory URL.
+  # A change to any of them replaces the instance.
   user_data = templatefile("${path.module}/user-data.yaml", {
-    compose = base64encode(file("${path.module}/compose.yaml"))
+    compose   = base64encode(file("${path.module}/compose.yaml"))
+    caddyfile = base64encode(file("${path.module}/Caddyfile"))
+    acme_dir  = local.acme_dirs[var.acme_ca]
   })
   user_data_replace_on_change = true
 
