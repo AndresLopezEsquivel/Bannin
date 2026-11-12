@@ -77,6 +77,8 @@ down() {
   terraform -chdir="$stack" init -input=false
   # Shows what will be deleted and waits for "yes".
   terraform -chdir="$stack" destroy
+  # Fails if anything billed by the hour is left in the region.
+  "$root/scripts/check-leftovers.sh"
 }
 
 case "${1:-}" in
