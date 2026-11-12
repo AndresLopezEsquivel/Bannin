@@ -19,9 +19,10 @@ updates:
     commit-message:
       prefix: build
 
-  # The Postgres image in compose.yaml.
+  # The Postgres image in compose.yaml, and the Caddy image in the
+  # instance's infra/app/compose.yaml.
   - package-ecosystem: docker-compose
-    directory: /
+    directories: ["/", "/infra/app"]
     schedule:
       interval: weekly
     cooldown:
@@ -47,9 +48,9 @@ updates:
     commit-message:
       prefix: ci
 
-  # Terraform providers in infra/costs (main.tf and .terraform.lock.hcl).
+  # Terraform providers in each stack (main.tf and .terraform.lock.hcl).
   - package-ecosystem: terraform
-    directory: /infra/costs
+    directories: ["/infra/costs", "/infra/app"]
     schedule:
       interval: weekly
     cooldown:
