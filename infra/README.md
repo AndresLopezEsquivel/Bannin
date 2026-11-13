@@ -85,6 +85,58 @@ sudo docker compose -f /opt/bannin/compose.yaml ps    # container states
 sudo docker compose -f /opt/bannin/compose.yaml logs  # app and Caddy logs
 ```
 
+## Deploys from CI
+
+On every push to `main`, once the checks pass and the image is
+published, the CI `deploy` job:
+
+1. Gets credentials for the `bannin-ci` role through GitHub's OIDC
+   token. No AWS keys are stored in GitHub.
+2. Runs `scripts/deploy.sh <commit hash>`. If no instance named
+   `bannin-app` is running, it prints "No instance running; nothing to
+   deploy." and passes.
+3. Otherwise, through SSM Run Command, the instance sets `IMAGE_TAG` in
+   `/opt/bannin/.env` to the commit hash, pulls that image, replaces
+   the app container and waits until its health check passes. The job
+   prints the command's output and fails if the command failed.
+
+The next spin-up starts from `main` again, the latest image.
+
+To read a deploy's output, open the repository's **Actions** tab,
+select the run, then the `deploy` job and its **Deploy this commit's
+image** step. The role's ARN and the account ID show as `***`.
+
+If a deploy fails, the instance may be left running the new, unhealthy
+container. To deploy an earlier commit's image again, re-run only that
+run's `deploy` job (re-running every job would rebuild that commit and
+move the `main` tag back to it):
+
+1. In the repository's **Actions** tab, select the earlier commit's
+   run.
+2. Select the `deploy` job.
+3. Select the re-run button at the top right of the job's log, then
+   **Re-run job**.
+
+Set up once, outside the code:
+
+1. A user allowed to create IAM providers, policies and roles creates
+   the `bannin-ci` role (see `iam/README.md`).
+2. A user with admin rights on the GitHub repository adds the role's
+   ARN as a secret, in GitHub:
+   1. In the repository, select **Settings**.
+   2. In the left menu, select **Secrets and variables**, then
+      **Actions**.
+   3. Select **New repository secret**.
+   4. For **Name**, enter `AWS_ROLE_ARN`. For **Secret**, enter
+      `arn:aws:iam::<account-id>:role/bannin-ci`, with the account's
+      ID.
+   5. Select **Add secret**.
+3. Only pushes to `main` can deploy, so `main` is protected. In the
+   repository's **Settings**, the left menu's **Rules**, then
+   **Rulesets**, lists the `main` ruleset: it blocks deleting and
+   force-pushing `main`, and requires a pull request whose CI checks
+   pass.
+
 ## IAM
 
 `iam/` holds the IAM policies and roles that a user with rights to
