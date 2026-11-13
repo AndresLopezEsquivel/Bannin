@@ -51,7 +51,7 @@ job gets a signed token from GitHub (OpenID Connect), and AWS swaps it
 for credentials that expire within an hour.
 
 Do these steps in the AWS console, signed in as a user allowed to
-create IAM identity providers and roles.
+create IAM identity providers, policies and roles.
 
 First, register GitHub Actions as an identity provider. One provider
 serves every role that trusts GitHub Actions, so this is done once per
@@ -65,7 +65,24 @@ account.
 4. For **Provider URL**, enter
    `https://token.actions.githubusercontent.com`.
 5. For **Audience**, enter `sts.amazonaws.com`.
-6. Select **Add provider**.
+6. Under **Add tags**, select **Add new tag** and add the key
+   `Project` with the value `bannin`.
+7. Select **Add provider**.
+
+Then create the role's policy, `bannin-ci-deploy`. It lets the role
+find the service's instance and run a shell command on it (the
+deploy), and nothing else:
+
+1. In the IAM console's left menu, select **Policies**, then **Create
+   policy**.
+2. Select the **JSON** tab, replace the policy in the editor with the
+   contents of `bannin-ci-policy.json`, and select **Next**.
+3. For **Policy name**, enter `bannin-ci-deploy`.
+4. Under **Add tags**, add the key `Project` with the value `bannin`.
+5. Select **Create policy**.
+
+Whenever `bannin-ci-policy.json` changes, update the policy the same
+way as `bannin-terraform` above.
 
 Then create the role:
 
@@ -76,7 +93,8 @@ Then create the role:
    `bannin-ci-trust.json`, and replace `<account-id>` with the
    account's 12-digit ID (shown in the account menu at the top right).
    Select **Next**.
-4. On **Add permissions**, select nothing and select **Next**.
+4. On **Add permissions**, search for `bannin-ci-deploy`, select its
+   checkbox, and select **Next**.
 5. For **Role name**, enter `bannin-ci`.
 6. Under **Add tags**, add the key `Project` with the value `bannin`.
 7. Select **Create role**.
