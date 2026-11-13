@@ -131,6 +131,12 @@ Set up once, outside the code:
       `arn:aws:iam::<account-id>:role/bannin-ci`, with the account's
       ID.
    5. Select **Add secret**.
+   6. Repeat steps 3 to 5 with the name `AWS_ROLE_ID` and the role's
+      unique ID (starts with `AROA`) as the value. The deploy job
+      masks it in the logs, since the account ID can be decoded from
+      it. To read the ID, run
+      `aws iam get-role --role-name bannin-ci --query Role.RoleId`
+      as a user allowed to read IAM roles, for example in CloudShell.
 3. Only pushes to `main` can deploy, so `main` is protected. In the
    repository's **Settings**, the left menu's **Rules**, then
    **Rulesets**, lists the `main` ruleset: it blocks deleting and
