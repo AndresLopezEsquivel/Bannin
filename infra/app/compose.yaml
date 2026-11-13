@@ -1,13 +1,15 @@
-# Runs the latest Bannin image built from the main branch
-# and published to GHCR on the server's EC2 instance.
+# Runs a Bannin image built from the main branch and published to
+# GHCR on the server's EC2 instance.
 # cloud-init writes this file to
 # /opt/bannin/compose.yaml and starts it on first boot.
 name: bannin
 
 services:
   app:
-    # The latest Bannin image built from the main branch. Public, so no login needed.
-    image: ghcr.io/andreslopezesquivel/bannin:main
+    # A Bannin image built from the main branch. Public, so no login needed.
+    # A deploy sets IMAGE_TAG in .env to the commit's hash; until then
+    # (at first boot), the tag is main, the latest image.
+    image: ghcr.io/andreslopezesquivel/bannin:${IMAGE_TAG:-main}
     # Starts the container again after a reboot, unless it was stopped
     # by hand.
     restart: unless-stopped
