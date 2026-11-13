@@ -198,6 +198,19 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The credentials step below prints the role's unique ID (AROA...),
+      # from which the account ID can be decoded, before its own masking
+      # starts. Registering the ID as masked first makes it show as ***.
+      # Fails if the secret is missing, so the ID is never printed unmasked.
+      # The step prints "<ID>:GitHubActions" (ID, then the session name),
+      # so that full form is masked too, in case only whole words match.
+      - name: Mask the role's unique ID
+        env:
+          ROLE_ID: ${{ secrets.AWS_ROLE_ID }}
+        run: |
+          test -n "$ROLE_ID"
+          echo "::add-mask::$ROLE_ID"
+          echo "::add-mask::$ROLE_ID:GitHubActions"
       # Trades the job's OIDC token for the bannin-ci role's credentials,
       # valid for an hour. No AWS keys are stored in GitHub.
       # Action: https://github.com/aws-actions/configure-aws-credentials
