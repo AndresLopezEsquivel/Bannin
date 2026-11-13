@@ -11,9 +11,11 @@ Terraform code for Bannin's AWS resources.
 
 ## Every stack
 
-1. An admin pastes `iam/terraform-policy.json` into the `terraform` IAM
-   user's policy in IAM whenever the file changes.
-2. Sign in with the AWS CLI as the `terraform` user.
+1. Whenever `iam/terraform-policy.json` changes, a user allowed to
+   edit IAM policies copies it into the `bannin-terraform` policy (see
+   `iam/README.md`).
+2. Sign in with the AWS CLI as a user whose only policy is
+   `bannin-terraform`.
 3. Run each stack with its script: `up` creates or updates it, `down`
    deletes it.
 
@@ -44,7 +46,8 @@ hour, so delete the stack at the end of each session.
 
 Before the first run:
 
-1. An admin creates the `bannin-app` role (see `iam/README.md`).
+1. A user allowed to create IAM roles creates the `bannin-app` role
+   (see `iam/README.md`).
 2. Run `terraform -chdir=infra/app init`.
 
 ```bash
@@ -63,9 +66,18 @@ issuer. `down` deletes the stack, then runs
 terminated), EBS volume or Elastic IP is still in `us-east-1`. The
 check also runs on its own.
 
-Port 22 is closed. For a shell on the instance, an admin opens EC2 →
-**Instances**, selects `bannin-app`, then **Connect → Session Manager →
-Connect**. Then:
+Port 22 is closed. For a shell on the instance, do these steps in the
+AWS console, signed in as a user allowed to start Session Manager
+sessions:
+
+1. Open the EC2 console: search for **EC2** in the console's top
+   search bar and select it.
+2. In the left menu, select **Instances**.
+3. Select the checkbox of the running instance named `bannin-app`,
+   then select **Connect**.
+4. Select the **Session Manager** tab, then **Connect**.
+
+A shell opens in the browser. Then:
 
 ```bash
 cloud-init status                                     # done when boot setup finished
@@ -75,5 +87,5 @@ sudo docker compose -f /opt/bannin/compose.yaml logs  # app and Caddy logs
 
 ## IAM
 
-`iam/` holds the IAM policies and roles that an admin sets up by hand
-in the IAM console. See `iam/README.md`.
+`iam/` holds the IAM policies and roles that a user with rights to
+manage IAM sets up by hand in the AWS console. See `iam/README.md`.

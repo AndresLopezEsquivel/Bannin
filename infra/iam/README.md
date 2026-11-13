@@ -1,13 +1,23 @@
 # IAM
 
-An admin sets these up by hand in the IAM console, so the `terraform`
-user never gets rights to create or change IAM users, roles or
-policies.
+A user with rights to manage IAM sets these up by hand in the AWS
+console, so the `terraform` user never gets rights to create or change
+IAM users, roles or policies.
 
 ## `terraform-policy.json`
 
-The `terraform` user's policy, `bannin-terraform`. An admin pastes the
-file into the policy in IAM whenever the file changes.
+The `terraform` user's policy, `bannin-terraform`. Whenever the file
+changes, copy it into the policy. Do these steps in the AWS console,
+signed in as a user allowed to edit IAM policies.
+
+1. Open the IAM console: search for **IAM** in the console's top
+   search bar and select it.
+2. In the left menu, select **Policies**, search for
+   `bannin-terraform`, and select its name.
+3. Select **Edit**, then the **JSON** tab.
+4. Replace the policy in the editor with the contents of
+   `terraform-policy.json`, then select **Next**.
+5. Select **Save changes**.
 
 ## The `bannin-app` role
 
