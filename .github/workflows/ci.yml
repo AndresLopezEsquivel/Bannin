@@ -181,3 +181,33 @@ jobs:
         run: |
           docker push "$IMAGE:$GITHUB_SHA"
           docker push "$IMAGE:main"
+
+  # Deploys the image just published to the service's instance, if it
+  # runs; otherwise logs that and passes. Pushes to main only; pull
+  # requests show it as skipped.
+  deploy:
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest  # comes with the AWS CLI and jq
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write  # lets the job request GitHub's OIDC token for AWS
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Trades the job's OIDC token for the bannin-ci role's credentials,
+      # valid for an hour. No AWS keys are stored in GitHub.
+      # Action: https://github.com/aws-actions/configure-aws-credentials
+      - name: Get AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          # A secret, so the ARN (and its account ID) shows as *** in logs.
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          # Also masks the account ID in later output, such as AWS errors.
+          mask-aws-account-id: true
+      - name: Deploy this commit's image
+        run: scripts/deploy.sh "$GITHUB_SHA"
