@@ -1,12 +1,31 @@
 """The Bannin scoring API."""
 
 import json
+import logging
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import NoReturn
 
 from fastapi import FastAPI, Request
 
 from bannin.auth import check_key
 from bannin.errors import ApiError, add_error_handlers
+from bannin.keys import load_keys
+
+# Uvicorn's own logger, so these lines show in the container's log next
+# to Uvicorn's (structured logging comes later).
+log = logging.getLogger("uvicorn.error")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Runs once at startup, before the first request. If the keys can't
+    be loaded, the error stops the app from starting."""
+    app.state.keys = load_keys(os.environ)
+    log.info("Loaded API keys: %s", ", ".join(sorted(app.state.keys)))
+    yield
+
 
 # api/openapi.yaml is the published spec, so FastAPI's generated docs
 # pages and spec are not served.
@@ -16,10 +35,11 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+    lifespan=lifespan,
 )
 add_error_handlers(app)
-# The valid API keys, by key ID. None are loaded yet, so every key is
-# rejected; loading them at startup comes later.
+# The valid API keys, by key ID. Empty, so every key is rejected, until
+# the lifespan above loads them at startup.
 app.state.keys = {}
 
 
