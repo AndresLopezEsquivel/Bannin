@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI
 
+from bannin.errors import add_error_handlers
+
 # api/openapi.yaml is the published spec, so FastAPI's generated docs
 # pages and spec are not served.
 app = FastAPI(
@@ -11,6 +13,7 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+add_error_handlers(app)
 
 
 # For operators, not merchants: no key, and not in the API's schema.
