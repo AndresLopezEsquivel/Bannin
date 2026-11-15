@@ -13,7 +13,7 @@ Terraform code for Bannin's AWS resources.
 
 1. Whenever `iam/terraform-policy.json` changes, a user allowed to
    edit IAM policies copies it into the `bannin-terraform` policy (see
-   `iam/README.md`).
+   [`iam/README.md`](iam/README.md)).
 2. Sign in with the AWS CLI as a user whose only policy is
    `bannin-terraform`.
 3. Run each stack with its script: `up` creates or updates it, `down`
@@ -47,7 +47,7 @@ hour, so delete the stack at the end of each session.
 Before the first run:
 
 1. A user allowed to create IAM roles creates the `bannin-app` role
-   (see `iam/README.md`).
+   and the first API key (see [`iam/README.md`](iam/README.md)).
 2. Run `terraform -chdir=infra/app init`.
 
 ```bash
@@ -85,6 +85,51 @@ sudo docker compose -f /opt/bannin/compose.yaml ps    # container states
 sudo docker compose -f /opt/bannin/compose.yaml logs  # app and Caddy logs
 ```
 
+## API keys
+
+Callers send an API key as `Authorization: Bearer <key>`. The keys are
+SecureString parameters in Parameter Store, named
+`/bannin/api-keys/key_NN`; the last segment is the key's ID, the only
+part the app logs. The app reads them once, when its container starts,
+and refuses to start with no keys, more than two, or a bad name. So
+after adding or deleting a key, restart the app.
+
+To list the key IDs without their values, as a user allowed to
+describe parameters (for example in CloudShell):
+
+```bash
+aws ssm describe-parameters --region us-east-1 \
+  --parameter-filters Key=Path,Values=/bannin/api-keys \
+  --query "Parameters[].Name"
+```
+
+To restart the app, open a shell on the instance as above, then:
+
+```bash
+sudo docker compose -f /opt/bannin/compose.yaml restart app
+sudo docker compose -f /opt/bannin/compose.yaml ps app            # healthy after a few seconds
+sudo docker compose -f /opt/bannin/compose.yaml logs app | grep "Loaded API keys"
+```
+
+If it doesn't become healthy, the logs say why; fix the parameter and
+restart again.
+
+To rotate a key without downtime, for example replacing `key_01`:
+
+1. Follow [The first API key](iam/README.md#the-first-api-key) in
+   `iam/README.md`, entering `/bannin/api-keys/key_02` as the **Name**
+   in step 4.
+2. Restart the app. The log shows `Loaded API keys: key_01, key_02`,
+   and both keys work.
+3. Give the callers the new key, and check that they use it.
+4. In the AWS console's Parameter Store, select the checkbox of
+   `/bannin/api-keys/key_01`, select **Delete**, and confirm.
+5. Restart the app. The log shows `Loaded API keys: key_02`, and the
+   old key gets 401.
+
+Give each new key the next unused number (`key_03` next time), so an
+ID in the logs always names one key.
+
 ## Deploys from CI
 
 On every push to `main`, once the checks pass and the image is
@@ -120,7 +165,7 @@ move the `main` tag back to it):
 Set up once, outside the code:
 
 1. A user allowed to create IAM providers, policies and roles creates
-   the `bannin-ci` role (see `iam/README.md`).
+   the `bannin-ci` role (see [`iam/README.md`](iam/README.md)).
 2. A user with admin rights on the GitHub repository adds the role's
    ARN as a secret, in GitHub:
    1. In the repository, select **Settings**.
@@ -146,4 +191,4 @@ Set up once, outside the code:
 ## IAM
 
 `iam/` holds the IAM policies and roles that a user with rights to
-manage IAM sets up by hand in the AWS console. See `iam/README.md`.
+manage IAM sets up by hand in the AWS console. See [`iam/README.md`](iam/README.md).
