@@ -7,6 +7,11 @@ services:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
+    # The app won't start without keys. To add a random one to .env:
+    # printf 'BANNIN_API_KEYS=key_01=bn_%s\n' "$(openssl rand -hex 24)" >> .env
+    environment:
+      BANNIN_KEYS_SOURCE: env
+      BANNIN_API_KEYS: ${BANNIN_API_KEYS:?Set BANNIN_API_KEYS in .env}
     # The image has no curl, so the check uses Python. urlopen raises an
     # error on a refused connection or a 4xx/5xx response, and the exit code is 1.
     healthcheck:

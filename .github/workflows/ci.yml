@@ -113,15 +113,29 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # A new random password for each run. The value is never printed.
-      - name: Write a random Postgres password to .env
-        run: printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env
+      # A new random password and API key for each run. The values are
+      # never printed, and the key is masked in case a later step prints it.
+      - name: Write a random Postgres password and API key to .env
+        run: |
+          key="bn_$(openssl rand -hex 24)"
+          echo "::add-mask::$key"
+          printf 'POSTGRES_PASSWORD=%s\nBANNIN_API_KEYS=key_01=%s\n' \
+            "$(openssl rand -hex 24)" "$key" > .env
       # Returns once both health checks (app's and db's) pass; fails if they don't within 60s.
       - name: Build and start the containers
         run: docker compose up --build --wait --wait-timeout 60
       # Calls /health from the runner (not inside a container), through the published port.
       - name: Call /health
         run: curl --fail --silent --show-error http://127.0.0.1:8000/health
+      # The key check through the real server: no key gets 401, the key
+      # gets 503 (nothing is scored yet).
+      - name: Call /score without and with the key
+        run: |
+          key=$(sed -n 's/^BANNIN_API_KEYS=key_01=//p' .env)
+          url=http://127.0.0.1:8000/score
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d '{}' "$url")" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d '{}' \
+            -H "Authorization: Bearer $key" "$url")" = 503
       # Fails if the app runs as root.
       - name: Check the app doesn't run as root
         run: |
@@ -161,11 +175,25 @@ jobs:
           --tag "$IMAGE:$GITHUB_SHA" --tag "$IMAGE:main" .
       - name: Check the image is arm64
         run: test "$(docker inspect --format '{{.Architecture}}' "$IMAGE:$GITHUB_SHA")" = arm64
+      # A new random API key, written to a file the container reads, so it
+      # never appears on a command line. Masked in case a step prints it.
       - name: Start the app
-        run: docker run --detach --name app --publish 127.0.0.1:8000:8000 "$IMAGE:$GITHUB_SHA"
+        run: |
+          key="bn_$(openssl rand -hex 24)"
+          echo "::add-mask::$key"
+          printf 'BANNIN_KEYS_SOURCE=env\nBANNIN_API_KEYS=key_01=%s\n' "$key" > app.env
+          docker run --detach --name app --env-file app.env \
+            --publish 127.0.0.1:8000:8000 "$IMAGE:$GITHUB_SHA"
       # Retries for up to about 30 seconds while the app starts.
       - name: Call /health
         run: curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:8000/health
+      - name: Call /score without and with the key
+        run: |
+          key=$(sed -n 's/^BANNIN_API_KEYS=key_01=//p' app.env)
+          url=http://127.0.0.1:8000/score
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d '{}' "$url")" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d '{}' \
+            -H "Authorization: Bearer $key" "$url")" = 503
       - name: Check the app doesn't run as root
         run: test "$(docker exec app id -u)" != 0
       - name: Show the app logs

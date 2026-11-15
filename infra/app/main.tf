@@ -121,9 +121,11 @@ resource "aws_instance" "app" {
     http_endpoint = "enabled"
     # Allows IMDSv2 only: every request to IMDS needs a session token.
     http_tokens = "required"
-    # Set the IMDS response hop limit (TTL) to 1 to prevent containers
-    # from accessing instance metadata, including IAM credentials.
-    # Increase it to 2 if containers later need access to IMDS.
+    # The IMDS response hop limit (TTL) is 2 so that the app's container
+    # can get the role's credentials and read the API keys from
+    # Parameter Store. A limit of 1 would block every container from
+    # instance metadata, including IAM credentials. With 2, every
+    # container on the instance can reach them, Caddy's included.
     #
     # A hop is one pass through a router: each time a network packet is
     # forwarded from one network to another, it makes one hop. Every
@@ -136,7 +138,7 @@ resource "aws_instance" "app" {
     # response back to the container consumes one hop. A hop limit of 1
     # therefore prevents the response from reaching the container, while
     # a limit of 2 allows it.
-    http_put_response_hop_limit = 1
+    http_put_response_hop_limit = 2
   }
 
   root_block_device {

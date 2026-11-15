@@ -16,6 +16,12 @@ services:
     # Reachable only from the instance itself.
     ports:
       - "127.0.0.1:8000:8000"
+    # The app reads its API keys from Parameter Store at startup, with
+    # the instance role's credentials. boto3 takes the Region from
+    # AWS_DEFAULT_REGION.
+    environment:
+      BANNIN_KEYS_SOURCE: ssm
+      AWS_DEFAULT_REGION: us-east-1
     # The image has no curl, so the check uses Python. urlopen raises an
     # error on a refused connection or a 4xx/5xx response, and the exit
     # code is 1.
