@@ -67,9 +67,16 @@ def test_app_loads_keys_at_startup(monkeypatch, restore_keys):
     # `with` runs the lifespan: startup on entry, shutdown on exit.
     with TestClient(app) as client:
         response = client.post(
-            "/score", content=b"{}", headers={"Authorization": f"Bearer {KEY_1}"}
+            "/score",
+            json={
+                "payment_id": "pay_001",
+                "amount": 1000,
+                "currency": "USD",
+                "card_id": "card_abc",
+            },
+            headers={"Authorization": f"Bearer {KEY_1}"},
         )
-    assert response.status_code == 503  # the key was accepted
+    assert response.status_code == 503  # the key and the request were accepted
 
 
 def test_app_does_not_start_without_keys(monkeypatch, restore_keys):
