@@ -79,6 +79,7 @@ def test_message_never_contains_the_value():
 
 # Every optional field this check covers, with a valid made-up value.
 OPTIONAL = {
+    "attempted_at": "2026-10-30T14:05:00Z",
     "order_id": "ord_001",
     "card_bin": "424242",
     "card_last4": "4242",
@@ -96,8 +97,37 @@ def test_valid_optional_fields_are_accepted():
 
 
 @pytest.mark.parametrize(
+    "value",
+    [
+        "2026-10-30T14:05:00+02:00",
+        "2026-10-30T14:05:00.123-05:30",
+        "2026-10-30t14:05:00z",
+        "2026-10-30T23:59:59-00:00",
+    ],
+)
+def test_valid_attempted_at_is_accepted(value):
+    assert check_request({**VALID, "attempted_at": value}) == (
+        {**VALID, "attempted_at": value},
+        [],
+    )
+
+
+DATE_TIME = "must be RFC 3339 with an offset, such as 2026-10-30T14:05:00Z"
+
+
+@pytest.mark.parametrize(
     ("field", "value", "message"),
     [
+        ("attempted_at", "2026-10-30T14:05:00", DATE_TIME),  # no offset
+        ("attempted_at", "2026-10-30", DATE_TIME),
+        ("attempted_at", "2026-10-30 14:05:00Z", DATE_TIME),
+        ("attempted_at", "20261030T140500Z", DATE_TIME),
+        ("attempted_at", "2026-W44-5T14:05:00Z", DATE_TIME),
+        ("attempted_at", "2026-10-30T14:05:00+0200", DATE_TIME),
+        ("attempted_at", "2026-02-30T14:05:00Z", DATE_TIME),
+        ("attempted_at", "2026-10-30T24:00:00Z", DATE_TIME),
+        ("attempted_at", "2026-10-30T23:59:60Z", DATE_TIME),
+        ("attempted_at", 1793369100, DATE_TIME),
         ("card_bin", "4242", "must be 6 or 8 digits"),
         ("card_bin", "4242424", "must be 6 or 8 digits"),
         ("card_bin", 424242, "must be 6 or 8 digits"),

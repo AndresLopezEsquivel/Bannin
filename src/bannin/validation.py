@@ -3,6 +3,7 @@ api/openapi.yaml."""
 
 import re
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from bannin.errors import ApiError
@@ -74,12 +75,37 @@ def _digits(pattern: str) -> Callable[[Any], bool]:
     return lambda value: isinstance(value, str) and bool(re.fullmatch(pattern, value))
 
 
+# RFC 3339's date-time. fromisoformat alone also accepts no offset,
+# 20261030T140500Z, week dates, +0200, and 24:00 as the next midnight.
+RFC3339 = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt]([01][0-9]|2[0-3]):[0-9]{2}:[0-9]{2}"
+    r"(\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})"
+)
+
+
+def _date_time(value: Any) -> bool:
+    """Passes RFC 3339 with an offset, for a date and time that exist."""
+    if not isinstance(value, str) or not RFC3339.fullmatch(value):
+        return False
+    try:
+        # upper(): fromisoformat rejects the lowercase t and z RFC 3339 allows.
+        # It also rejects 2026-02-30 and the leap second :60.
+        datetime.fromisoformat(value.upper())
+    except ValueError:
+        return False
+    return True
+
+
 TEXT = f"must be text of 1 to {MAX_TEXT} characters"
 
 # Each optional field: its check, and the message when the check fails.
 # The message leaves out the field's name, since the ignored entry's
 # `field` already gives it, and never includes the value.
 OPTIONAL: dict[str, tuple[Callable[[Any], bool], str]] = {
+    "attempted_at": (
+        _date_time,
+        "must be RFC 3339 with an offset, such as 2026-10-30T14:05:00Z",
+    ),
     "order_id": (_text_of(MAX_TEXT), TEXT),
     "card_bin": (_digits(r"[0-9]{6}([0-9]{2})?"), "must be 6 or 8 digits"),
     "card_last4": (_digits(r"[0-9]{4}"), "must be 4 digits"),
@@ -95,7 +121,6 @@ OPTIONAL: dict[str, tuple[Callable[[Any], bool], str]] = {
 
 # Known fields whose checks aren't written yet: skipped, not reported.
 NOT_CHECKED_YET = {
-    "attempted_at",
     "ip_address",
     "email",
     "billing_address",
