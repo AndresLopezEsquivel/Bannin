@@ -86,6 +86,7 @@ OPTIONAL = {
     "customer_id": "cus_001",
     "name": "Test Person",
     "phone": "+14155550100",
+    "ip_address": "192.0.2.1",
     "device_id": "dev_001",
     "user_agent": "u" * 1024,
 }
@@ -112,7 +113,24 @@ def test_valid_attempted_at_is_accepted(value):
     )
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "192.0.2.1",
+        "0.0.0.0",
+        "255.255.255.255",
+        "2001:db8::1",
+        "::ffff:192.0.2.1",
+        "::1",
+    ],
+)
+def test_valid_ip_address_is_accepted(value):
+    accepted, ignored = check_request({**VALID, "ip_address": value})
+    assert (accepted["ip_address"], ignored) == (value, [])
+
+
 DATE_TIME = "must be RFC 3339 with an offset, such as 2026-10-30T14:05:00Z"
+IP = "must be an IPv4 or IPv6 address, such as 192.0.2.1"
 
 
 @pytest.mark.parametrize(
@@ -128,6 +146,12 @@ DATE_TIME = "must be RFC 3339 with an offset, such as 2026-10-30T14:05:00Z"
         ("attempted_at", "2026-10-30T24:00:00Z", DATE_TIME),
         ("attempted_at", "2026-10-30T23:59:60Z", DATE_TIME),
         ("attempted_at", 1793369100, DATE_TIME),
+        ("ip_address", "192.0.2.256", IP),
+        ("ip_address", "192.000.002.001", IP),  # leading zeros
+        ("ip_address", " 192.0.2.1", IP),
+        ("ip_address", "fe80::1%eth0", IP),
+        ("ip_address", "2001:db8::g", IP),
+        ("ip_address", 3221225985, IP),  # 192.0.2.1 as an int
         ("card_bin", "4242", "must be 6 or 8 digits"),
         ("card_bin", "4242424", "must be 6 or 8 digits"),
         ("card_bin", 424242, "must be 6 or 8 digits"),

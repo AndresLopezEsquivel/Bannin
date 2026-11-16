@@ -1,6 +1,7 @@
 """Checks the fields of a scoring request against the rules in
 api/openapi.yaml."""
 
+import ipaddress
 import re
 from collections.abc import Callable
 from datetime import datetime
@@ -96,6 +97,19 @@ def _date_time(value: Any) -> bool:
     return True
 
 
+def _ip_address(value: Any) -> bool:
+    """Passes IPv4 or IPv6 text."""
+    # ip_address also takes an int, and a %scope (fe80::1%eth0) that the
+    # JSON Schema ipv6 format doesn't allow; both are rejected first.
+    if not isinstance(value, str) or "%" in value:
+        return False
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return True
+
+
 TEXT = f"must be text of 1 to {MAX_TEXT} characters"
 
 # Each optional field: its check, and the message when the check fails.
@@ -115,13 +129,16 @@ OPTIONAL: dict[str, tuple[Callable[[Any], bool], str]] = {
         _digits(r"\+[0-9]{1,15}"),
         "must be E.164: + then 1 to 15 digits, such as +14155550100",
     ),
+    "ip_address": (
+        _ip_address,
+        "must be an IPv4 or IPv6 address, such as 192.0.2.1",
+    ),
     "device_id": (_text_of(MAX_TEXT), TEXT),
     "user_agent": (_text_of(1024), "must be text of 1 to 1024 characters"),
 }
 
 # Known fields whose checks aren't written yet: skipped, not reported.
 NOT_CHECKED_YET = {
-    "ip_address",
     "email",
     "billing_address",
     "shipping_address",
