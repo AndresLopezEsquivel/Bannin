@@ -107,3 +107,9 @@ def test_valid_request_gets_503_until_scoring_exists():
     response = client.post("/score", json=VALID, headers=AUTH)
     assert response.status_code == 503
     assert error_of(response)["code"] == "service_unavailable"
+
+
+def test_invalid_optional_field_still_gets_503():
+    body = {**VALID, "card_bin": "4242", "colour": "red"}
+    response = client.post("/score", json=body, headers=AUTH)
+    assert response.status_code == 503

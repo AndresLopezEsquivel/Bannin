@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from bannin.auth import check_key
 from bannin.errors import ApiError, add_error_handlers
 from bannin.keys import load_keys
-from bannin.validation import check_required
+from bannin.validation import check_request
 
 # Uvicorn's own logger, so these lines show in the container's log next
 # to Uvicorn's (structured logging comes later).
@@ -77,7 +77,8 @@ async def score(request: Request) -> NoReturn:
         )
 
     # Raises a 400 for the first required field that's missing or invalid.
-    request.state.fields = check_required(body)
+    # Invalid or unrecognized optional fields are only listed as ignored.
+    request.state.fields, request.state.ignored = check_request(body)
 
     raise ApiError(
         503,
