@@ -2,6 +2,7 @@
 api/openapi.yaml."""
 
 import re
+from collections.abc import Callable
 from typing import Any
 
 from bannin.errors import ApiError
@@ -60,3 +61,67 @@ def check_required(body: dict[str, Any]) -> dict[str, Any]:
         "currency": _currency(body),
         "card_id": _text(body, "card_id"),
     }
+
+
+def _text_of(max_len: int) -> Callable[[Any], bool]:
+    """Returns a check that passes text of 1 to max_len characters."""
+    return lambda value: isinstance(value, str) and 1 <= len(value) <= max_len
+
+
+def _digits(pattern: str) -> Callable[[Any], bool]:
+    """Returns a check that passes text matching the whole pattern."""
+    # [0-9] rather than \d, which also matches digits from other scripts.
+    return lambda value: isinstance(value, str) and bool(re.fullmatch(pattern, value))
+
+
+TEXT = f"must be text of 1 to {MAX_TEXT} characters"
+
+# Each optional field: its check, and the message when the check fails.
+# The message leaves out the field's name, since the ignored entry's
+# `field` already gives it, and never includes the value.
+OPTIONAL: dict[str, tuple[Callable[[Any], bool], str]] = {
+    "order_id": (_text_of(MAX_TEXT), TEXT),
+    "card_bin": (_digits(r"[0-9]{6}([0-9]{2})?"), "must be 6 or 8 digits"),
+    "card_last4": (_digits(r"[0-9]{4}"), "must be 4 digits"),
+    "customer_id": (_text_of(MAX_TEXT), TEXT),
+    "name": (_text_of(MAX_TEXT), TEXT),
+    "phone": (
+        _digits(r"\+[0-9]{1,15}"),
+        "must be E.164: + then 1 to 15 digits, such as +14155550100",
+    ),
+    "device_id": (_text_of(MAX_TEXT), TEXT),
+    "user_agent": (_text_of(1024), "must be text of 1 to 1024 characters"),
+}
+
+# Known fields whose checks aren't written yet: skipped, not reported.
+NOT_CHECKED_YET = {
+    "attempted_at",
+    "ip_address",
+    "email",
+    "billing_address",
+    "shipping_address",
+}
+
+
+def _ignored(name: str, code: str, message: str) -> dict[str, str]:
+    return {"field": name, "code": code, "message": message}
+
+
+def check_request(body: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Returns the accepted fields and the ignored ones. Raises a 400 if a
+    required field is missing or invalid; an optional field that's invalid
+    or unrecognized is only listed as ignored, in the order it was sent."""
+    accepted = check_required(body)
+    ignored = []
+    for name, value in body.items():
+        if name in accepted or name in NOT_CHECKED_YET:
+            continue  # a required field (already checked), or one checked later
+        if name not in OPTIONAL:
+            ignored.append(_ignored(name, "unrecognized", "is not a field Bannin uses"))
+            continue
+        check, message = OPTIONAL[name]
+        if check(value):
+            accepted[name] = value
+        else:
+            ignored.append(_ignored(name, "invalid", message))
+    return accepted, ignored
