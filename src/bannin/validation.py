@@ -3,7 +3,7 @@ api/openapi.yaml."""
 
 import ipaddress
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any
 
@@ -138,8 +138,22 @@ UNRECOGNIZED = "is not a field Bannin uses"
 # and never includes the value.
 Rule = tuple[Callable[[Any], bool], str]
 
-# Each optional field and its rule.
-OPTIONAL: dict[str, Rule] = {
+# The parts of a billing or shipping address. Country is checked by
+# format only: XX passes, as the spec's pattern allows.
+ADDRESS: dict[str, Rule] = {
+    "line1": (_text_of(MAX_TEXT), TEXT),
+    "line2": (_text_of(MAX_TEXT), TEXT),
+    "city": (_text_of(MAX_TEXT), TEXT),
+    "region": (_text_of(MAX_TEXT), TEXT),
+    "postal_code": (_text_of(MAX_TEXT), TEXT),
+    "country": (
+        _matches(r"[A-Z]{2}"),
+        "must be two uppercase letters (ISO 3166-1 alpha-2), such as US",
+    ),
+}
+
+# Each optional field: a rule, or the rules of an object's parts.
+OPTIONAL: dict[str, Rule | dict[str, Rule]] = {
     "attempted_at": (
         _date_time,
         "must be RFC 3339 with an offset, such as 2026-10-30T14:05:00Z",
@@ -160,12 +174,8 @@ OPTIONAL: dict[str, Rule] = {
     ),
     "device_id": (_text_of(MAX_TEXT), TEXT),
     "user_agent": (_text_of(1024), "must be text of 1 to 1024 characters"),
-}
-
-# Known fields whose checks aren't written yet: skipped, not reported.
-NOT_CHECKED_YET = {
-    "billing_address",
-    "shipping_address",
+    "billing_address": ADDRESS,
+    "shipping_address": ADDRESS,
 }
 
 
@@ -174,22 +184,35 @@ def _ignored(name: str, code: str, message: str) -> dict[str, str]:
 
 
 def _check_fields(
-    fields: dict[str, Any], rules: dict[str, Rule]
+    fields: dict[str, Any],
+    rules: Mapping[str, Rule | Mapping[str, Rule]],
+    prefix: str = "",
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
-    """Returns the fields that pass their rules, and the ignored ones, in
-    the order sent."""
+    """Returns the fields that pass their rules, and the ignored ones,
+    named by dot path (billing_address.country), in the order sent."""
     accepted: dict[str, Any] = {}
     ignored: list[dict[str, str]] = []
     for name, value in fields.items():
+        path = prefix + name
         rule = rules.get(name)
         if rule is None:
-            ignored.append(_ignored(name, "unrecognized", UNRECOGNIZED))
-            continue
-        check, message = rule
-        if check(value):
-            accepted[name] = value
+            ignored.append(_ignored(path, "unrecognized", UNRECOGNIZED))
+        elif isinstance(rule, Mapping):  # an object, such as an address
+            if not isinstance(value, dict):
+                ignored.append(_ignored(path, "invalid", "must be an object"))
+                continue
+            parts, ignored_parts = _check_fields(value, rule, path + ".")
+            ignored += ignored_parts
+            # No part accepted: as if the object hadn't been sent, so {}
+            # and a missing address compare equal on a resend.
+            if parts:
+                accepted[name] = parts
         else:
-            ignored.append(_ignored(name, "invalid", message))
+            check, message = rule
+            if check(value):
+                accepted[name] = value
+            else:
+                ignored.append(_ignored(path, "invalid", message))
     return accepted, ignored
 
 
@@ -198,11 +221,6 @@ def check_request(body: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, 
     required field is missing or invalid; an optional field that's invalid
     or unrecognized is only listed as ignored, in the order it was sent."""
     required = check_required(body)
-    rest = {
-        name: value
-        for name, value in body.items()
-        # Required fields were checked above; the others are checked later.
-        if name not in required and name not in NOT_CHECKED_YET
-    }
+    rest = {name: value for name, value in body.items() if name not in required}
     optional, ignored = _check_fields(rest, OPTIONAL)
     return {**required, **optional}, ignored

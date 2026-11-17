@@ -219,3 +219,44 @@ def test_a_required_field_still_fails_first():
     with pytest.raises(ApiError) as caught:
         check_request({**VALID, "amount": 0, "card_bin": "4242"})
     assert caught.value.field == "amount"
+
+
+ADDRESS = {
+    "line1": "1 Test Street",
+    "line2": "Unit 2",
+    "city": "Testville",
+    "region": "Test Region",
+    "postal_code": "00000",
+    "country": "US",
+}
+COUNTRY = "must be two uppercase letters (ISO 3166-1 alpha-2), such as US"
+TEXT = "must be text of 1 to 255 characters"
+
+
+def test_valid_addresses_are_accepted():
+    body = {**VALID, "billing_address": ADDRESS, "shipping_address": {"country": "XX"}}
+    assert check_request(body) == (body, [])
+
+
+@pytest.mark.parametrize(
+    ("part", "value", "message"),
+    [
+        ("country", "us", COUNTRY),
+        ("country", "USA", COUNTRY),
+        ("country", "U1", COUNTRY),
+        ("country", None, COUNTRY),
+        ("postal_code", "", TEXT),
+        ("line1", "l" * 256, TEXT),
+        ("city", 12345, TEXT),
+    ],
+)
+def test_invalid_address_part_is_ignored_by_dot_path(part, value, message):
+    accepted, ignored = check_request(
+        {**VALID, "shipping_address": {**ADDRESS, part: value}}
+    )
+    assert accepted["shipping_address"] == {
+        k: v for k, v in ADDRESS.items() if k != part
+    }
+    assert ignored == [
+        {"field": f"shipping_address.{part}", "code": "invalid", "message": message}
+    ]
