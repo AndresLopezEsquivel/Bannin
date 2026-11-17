@@ -53,7 +53,7 @@ def test_wrong_key_comes_before_a_broken_body():
         b"42",  # a number
         b"null",
         b"\xff\xfe\xfa",  # bytes that aren't text
-        b"[" * 100_000,  # nested too deeply
+        b"[" * 65_536,  # nested too deeply, at the size limit
     ],
 )
 def test_body_that_is_not_a_json_object(body):
