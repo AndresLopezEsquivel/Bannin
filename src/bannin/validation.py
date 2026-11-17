@@ -139,7 +139,7 @@ UNRECOGNIZED = "is not a field Bannin uses"
 Rule = tuple[Callable[[Any], bool], str]
 
 # The parts of a billing or shipping address. Country is checked by
-# format only: XX passes, as the spec's pattern allows.
+# format only: XX passes, as the pattern in api/openapi.yaml allows.
 ADDRESS: dict[str, Rule] = {
     "line1": (_text_of(MAX_TEXT), TEXT),
     "line2": (_text_of(MAX_TEXT), TEXT),

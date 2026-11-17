@@ -5,7 +5,7 @@ import pytest
 from bannin.errors import ApiError
 from bannin.validation import check_request, check_required
 
-# The spec's `required_only` example.
+# The `required_only` example in api/openapi.yaml.
 VALID = {
     "payment_id": "pay_001",
     "amount": 1000,
@@ -260,3 +260,31 @@ def test_invalid_address_part_is_ignored_by_dot_path(part, value, message):
     assert ignored == [
         {"field": f"shipping_address.{part}", "code": "invalid", "message": message}
     ]
+
+
+@pytest.mark.parametrize("value", ["US", None, [ADDRESS], 1])
+def test_address_that_is_not_an_object_is_ignored(value):
+    accepted, ignored = check_request({**VALID, "billing_address": value})
+    assert accepted == VALID
+    assert ignored == [
+        {"field": "billing_address", "code": "invalid", "message": "must be an object"}
+    ]
+
+
+def test_address_with_no_accepted_part_is_left_out_in_order():
+    body = {
+        "colour": "red",
+        **VALID,
+        "billing_address": {},
+        "shipping_address": {"country": "us", "street": "s3cr3t"},
+        "size": 9,
+    }
+    accepted, ignored = check_request(body)
+    assert accepted == VALID
+    assert [(i["field"], i["code"]) for i in ignored] == [
+        ("colour", "unrecognized"),
+        ("shipping_address.country", "invalid"),
+        ("shipping_address.street", "unrecognized"),
+        ("size", "unrecognized"),
+    ]
+    assert "s3cr3t" not in str(ignored)

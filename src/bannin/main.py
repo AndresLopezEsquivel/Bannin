@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # api/openapi.yaml is the published spec, so FastAPI's generated docs
-# pages and spec are not served.
+# pages and its generated spec (/openapi.json) are not served.
 app = FastAPI(
     title="Bannin Scoring API",
     version="0.1.0",
