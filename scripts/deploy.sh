@@ -26,6 +26,17 @@ if [ -z "$instance" ]; then
   echo "No instance running; nothing to deploy."
   exit 0
 fi
+# The repo is public, so so are its Actions logs: GitHub Actions shows
+# *** in place of each ID from here on. This must run before any line
+# that prints an ID, the error just below included. A run by hand
+# shows the IDs. The GitHub Actions runner sets GITHUB_ACTIONS=true for
+# every step; elsewhere it's unset, and :- turns that into "" so set -u
+# doesn't stop the script.
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+  for id in $instance; do
+    echo "::add-mask::$id"
+  done
+fi
 if [ "$(wc -w <<<"$instance")" -ne 1 ]; then
   echo "More than one running instance named bannin-app: $instance" >&2
   exit 1
