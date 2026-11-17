@@ -78,6 +78,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -267,8 +269,9 @@ components:
       type: object
       description: >
         Every error response has one error. If a request has several
-        problems, the API key is reported first, then the body, then the
-        fields in the order payment_id, amount, currency, card_id.
+        problems, the API key is reported first, then the body's size,
+        then the body, then the fields in the order payment_id, amount,
+        currency, card_id.
       required: [error]
       properties:
         error:
@@ -284,6 +287,7 @@ components:
                 - parameter_missing    # missing, empty, or blank
                 - parameter_invalid    # wrong type or format
                 - body_invalid         # not a JSON object
+                - body_too_large       # over 65536 bytes
                 - api_key_missing
                 - api_key_invalid
                 - payment_id_reused    # same payment_id, different fields
@@ -357,6 +361,22 @@ components:
                   code: payment_id_reused
                   message: This payment_id was already scored with different fields.
                   field: payment_id
+    PayloadTooLarge:
+      description: >
+        The body is over 65536 bytes (64 KiB), whatever the
+        Content-Length header says. The request was not scored or logged.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            body_too_large:
+              summary: The body is too large
+              value:
+                error:
+                  type: invalid_request
+                  code: body_too_large
+                  message: The body must be at most 65536 bytes.
     InternalError:
       description: >
         An unexpected error in Bannin. Retrying with the same payment_id
