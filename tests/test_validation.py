@@ -85,6 +85,7 @@ OPTIONAL = {
     "card_last4": "4242",
     "customer_id": "cus_001",
     "name": "Test Person",
+    "email": "test@example.com",
     "phone": "+14155550100",
     "ip_address": "192.0.2.1",
     "device_id": "dev_001",
@@ -129,7 +130,16 @@ def test_valid_ip_address_is_accepted(value):
     assert (accepted["ip_address"], ignored) == (value, [])
 
 
+@pytest.mark.parametrize(
+    "value", ["Test@EXAMPLE.com", '"a b"@example.com', "test@[192.0.2.1]"]
+)
+def test_valid_email_is_accepted_as_sent(value):
+    accepted, ignored = check_request({**VALID, "email": value})
+    assert (accepted["email"], ignored) == (value, [])
+
+
 DATE_TIME = "must be RFC 3339 with an offset, such as 2026-10-30T14:05:00Z"
+EMAIL = "must be an email address, such as test@example.com"
 IP = "must be an IPv4 or IPv6 address, such as 192.0.2.1"
 
 
@@ -146,6 +156,13 @@ IP = "must be an IPv4 or IPv6 address, such as 192.0.2.1"
         ("attempted_at", "2026-10-30T24:00:00Z", DATE_TIME),
         ("attempted_at", "2026-10-30T23:59:60Z", DATE_TIME),
         ("attempted_at", 1793369100, DATE_TIME),
+        ("email", "test@", EMAIL),
+        ("email", "@example.com", EMAIL),
+        ("email", "a b@example.com", EMAIL),
+        ("email", "test@example", EMAIL),
+        ("email", "josé@example.com", EMAIL),  # é: not ASCII
+        ("email", "test@example.test", EMAIL),  # special-use domain
+        ("email", ["test@example.com"], EMAIL),
         ("ip_address", "192.0.2.256", IP),
         ("ip_address", "192.000.002.001", IP),  # leading zeros
         ("ip_address", " 192.0.2.1", IP),

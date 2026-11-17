@@ -7,6 +7,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from email_validator import EmailNotValidError, validate_email
+
 from bannin.errors import ApiError
 
 MAX_TEXT = 255
@@ -110,6 +112,24 @@ def _ip_address(value: Any) -> bool:
     return True
 
 
+def _email(value: Any) -> bool:
+    """Passes an email address as RFC 5321 defines it."""
+    if not isinstance(value, str):
+        return False
+    try:
+        validate_email(
+            value,
+            check_deliverability=False,  # no DNS lookup on every request
+            allow_smtputf8=False,  # RFC 5321 is ASCII before the @
+            # RFC 5321 allows both; the library turns them off by default.
+            allow_quoted_local=True,  # "a b"@example.com
+            allow_domain_literal=True,  # test@[192.0.2.1]
+        )
+    except EmailNotValidError:
+        return False
+    return True
+
+
 TEXT = f"must be text of 1 to {MAX_TEXT} characters"
 
 # Each optional field: its check, and the message when the check fails.
@@ -125,6 +145,7 @@ OPTIONAL: dict[str, tuple[Callable[[Any], bool], str]] = {
     "card_last4": (_digits(r"[0-9]{4}"), "must be 4 digits"),
     "customer_id": (_text_of(MAX_TEXT), TEXT),
     "name": (_text_of(MAX_TEXT), TEXT),
+    "email": (_email, "must be an email address, such as test@example.com"),
     "phone": (
         _digits(r"\+[0-9]{1,15}"),
         "must be E.164: + then 1 to 15 digits, such as +14155550100",
@@ -139,7 +160,6 @@ OPTIONAL: dict[str, tuple[Callable[[Any], bool], str]] = {
 
 # Known fields whose checks aren't written yet: skipped, not reported.
 NOT_CHECKED_YET = {
-    "email",
     "billing_address",
     "shipping_address",
 }
