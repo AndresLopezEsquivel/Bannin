@@ -1,0 +1,11 @@
+# The decision thresholds, read once when the app starts. A score at or
+# above `decline` is declined; otherwise, at or above `review` goes to
+# review; otherwise the payment is approved. Both run from 0 to 100, and
+# review must be below decline, or the app doesn't start.
+#
+# To change a threshold, also change `version`: each version names
+# exactly one pair of thresholds, so a decision can be traced to the
+# thresholds that made it. A change takes effect at the next start.
+version = "thresholds-v1"
+review = 60
+decline = 85
