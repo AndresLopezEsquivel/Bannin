@@ -72,7 +72,7 @@ def _text_of(max_len: int) -> Callable[[Any], bool]:
     return lambda value: isinstance(value, str) and 1 <= len(value) <= max_len
 
 
-def _digits(pattern: str) -> Callable[[Any], bool]:
+def _matches(pattern: str) -> Callable[[Any], bool]:
     """Returns a check that passes text matching the whole pattern."""
     # [0-9] rather than \d, which also matches digits from other scripts.
     return lambda value: isinstance(value, str) and bool(re.fullmatch(pattern, value))
@@ -131,23 +131,27 @@ def _email(value: Any) -> bool:
 
 
 TEXT = f"must be text of 1 to {MAX_TEXT} characters"
+UNRECOGNIZED = "is not a field Bannin uses"
 
-# Each optional field: its check, and the message when the check fails.
-# The message leaves out the field's name, since the ignored entry's
-# `field` already gives it, and never includes the value.
-OPTIONAL: dict[str, tuple[Callable[[Any], bool], str]] = {
+# A check, and the message when the check fails. The message leaves out
+# the field's name, since the ignored entry's `field` already gives it,
+# and never includes the value.
+Rule = tuple[Callable[[Any], bool], str]
+
+# Each optional field and its rule.
+OPTIONAL: dict[str, Rule] = {
     "attempted_at": (
         _date_time,
         "must be RFC 3339 with an offset, such as 2026-10-30T14:05:00Z",
     ),
     "order_id": (_text_of(MAX_TEXT), TEXT),
-    "card_bin": (_digits(r"[0-9]{6}([0-9]{2})?"), "must be 6 or 8 digits"),
-    "card_last4": (_digits(r"[0-9]{4}"), "must be 4 digits"),
+    "card_bin": (_matches(r"[0-9]{6}([0-9]{2})?"), "must be 6 or 8 digits"),
+    "card_last4": (_matches(r"[0-9]{4}"), "must be 4 digits"),
     "customer_id": (_text_of(MAX_TEXT), TEXT),
     "name": (_text_of(MAX_TEXT), TEXT),
     "email": (_email, "must be an email address, such as test@example.com"),
     "phone": (
-        _digits(r"\+[0-9]{1,15}"),
+        _matches(r"\+[0-9]{1,15}"),
         "must be E.164: + then 1 to 15 digits, such as +14155550100",
     ),
     "ip_address": (
@@ -169,21 +173,36 @@ def _ignored(name: str, code: str, message: str) -> dict[str, str]:
     return {"field": name, "code": code, "message": message}
 
 
-def check_request(body: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
-    """Returns the accepted fields and the ignored ones. Raises a 400 if a
-    required field is missing or invalid; an optional field that's invalid
-    or unrecognized is only listed as ignored, in the order it was sent."""
-    accepted = check_required(body)
-    ignored = []
-    for name, value in body.items():
-        if name in accepted or name in NOT_CHECKED_YET:
-            continue  # a required field (already checked), or one checked later
-        if name not in OPTIONAL:
-            ignored.append(_ignored(name, "unrecognized", "is not a field Bannin uses"))
+def _check_fields(
+    fields: dict[str, Any], rules: dict[str, Rule]
+) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Returns the fields that pass their rules, and the ignored ones, in
+    the order sent."""
+    accepted: dict[str, Any] = {}
+    ignored: list[dict[str, str]] = []
+    for name, value in fields.items():
+        rule = rules.get(name)
+        if rule is None:
+            ignored.append(_ignored(name, "unrecognized", UNRECOGNIZED))
             continue
-        check, message = OPTIONAL[name]
+        check, message = rule
         if check(value):
             accepted[name] = value
         else:
             ignored.append(_ignored(name, "invalid", message))
     return accepted, ignored
+
+
+def check_request(body: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Returns the accepted fields and the ignored ones. Raises a 400 if a
+    required field is missing or invalid; an optional field that's invalid
+    or unrecognized is only listed as ignored, in the order it was sent."""
+    required = check_required(body)
+    rest = {
+        name: value
+        for name, value in body.items()
+        # Required fields were checked above; the others are checked later.
+        if name not in required and name not in NOT_CHECKED_YET
+    }
+    optional, ignored = _check_fields(rest, OPTIONAL)
+    return {**required, **optional}, ignored
