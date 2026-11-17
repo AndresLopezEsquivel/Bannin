@@ -1,5 +1,5 @@
 """POST /score on the real app: the key first, then the body's size,
-then the body, then the required fields."""
+then the body, then the required fields, then scoring."""
 
 import asyncio
 import json
@@ -9,6 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from bannin.main import app
+from bannin.scorer import StubScorer
+from bannin.thresholds import Thresholds
 
 # A new random key on every run; not a real key.
 KEY = "bn_" + secrets.token_urlsafe(32)
@@ -18,12 +20,17 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def loaded_keys():
-    """Loads the made-up key for each test, then puts the old keys back."""
-    old = app.state.keys
+def loaded_state():
+    """Sets what startup would (the made-up key, thresholds and the stub
+    scorer) for each test, then puts the old values back."""
+    names = ("keys", "thresholds", "scorer")
+    old = {name: getattr(app.state, name, None) for name in names}
     app.state.keys = {"key_01": KEY}
+    app.state.thresholds = Thresholds(version="thresholds-v1", review=60, decline=85)
+    app.state.scorer = StubScorer()
     yield
-    app.state.keys = old
+    for name, value in old.items():
+        setattr(app.state, name, value)
 
 
 def error_of(response):
