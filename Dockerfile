@@ -43,7 +43,10 @@ LABEL org.opencontainers.image.source=https://github.com/AndresLopezEsquivel/Ban
 RUN useradd --system --uid 10001 --no-create-home bannin
 # The copied files belong to root: the bannin user can read them but not change them.
 COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+# The decision thresholds, read once at startup from the path below. The
+# app has no default path, so it doesn't start without this line.
+COPY config/thresholds.toml /app/config/thresholds.toml
+ENV PATH="/app/.venv/bin:$PATH" BANNIN_THRESHOLDS_FILE=/app/config/thresholds.toml
 USER bannin
 EXPOSE 8000
 CMD ["uvicorn", "bannin.main:app", "--host", "0.0.0.0", "--port", "8000"]
