@@ -30,5 +30,12 @@ https://{$PUBLIC_IP} {
 		# Fallback if Let's Encrypt fails: a self-signed certificate.
 		issuer internal
 	}
+	# A backstop: the app rejects bodies over 64 KiB itself, with its
+	# own error. If a bug ever lets a larger body past the app's check,
+	# Caddy still stops it at 1 MiB, 16 times the app's limit. Caddy's
+	# response isn't in the app's error shape.
+	request_body {
+		max_size 1MiB
+	}
 	reverse_proxy app:8000
 }
