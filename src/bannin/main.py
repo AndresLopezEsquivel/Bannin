@@ -12,6 +12,9 @@ from fastapi import FastAPI, Request
 from bannin.auth import check_key
 from bannin.errors import ApiError, add_error_handlers
 from bannin.keys import load_keys
+from bannin.scorer import MODEL_VERSION, StubScorer
+from bannin.scoring import score_payment
+from bannin.thresholds import load_thresholds_from_env
 from bannin.validation import check_request
 
 # Uvicorn's own logger, so these lines show in the container's log next
@@ -25,10 +28,21 @@ MAX_BODY = 64 * 1024
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Runs once at startup, before the first request. If the keys can't
-    be loaded, the error stops the app from starting."""
+    """Runs once at startup, before the first request. If the keys or
+    the thresholds can't be loaded, the error stops the app from starting."""
     app.state.keys = load_keys(os.environ)
     log.info("Loaded API keys: %s", ", ".join(sorted(app.state.keys)))
+    # Read once: a threshold change takes a restart, so each running app
+    # decides with exactly one version of the thresholds.
+    t = app.state.thresholds = load_thresholds_from_env(os.environ)
+    app.state.scorer = StubScorer()
+    log.info(
+        "Loaded thresholds %s (review %s, decline %s); scorer %s",
+        t.version,
+        t.review,
+        t.decline,
+        MODEL_VERSION,
+    )
     yield
 
 
@@ -86,8 +100,9 @@ def health() -> dict[str, str]:
 @app.post("/score", response_model=None)
 async def score(request: Request) -> NoReturn:
     """Check the key, then the body's size, then that the body is a
-    JSON object, then the required fields. Scoring isn't built yet, so a
-    request that passes all four gets a 503."""
+    JSON object, then the required fields, then score the payment. The
+    decision isn't sent yet: it's logged before it's sent, and the log
+    isn't built, so a scored request gets a 503."""
     # Kept on the request, so the decision log can record which key was used.
     request.state.key_id = check_key(
         request.headers.get("authorization"), request.app.state.keys
@@ -109,6 +124,15 @@ async def score(request: Request) -> NoReturn:
     # Raises a 400 for the first required field that's missing or invalid.
     # Invalid or unrecognized optional fields are only listed as ignored.
     request.state.fields, request.state.ignored = check_request(body)
+
+    # Kept on the request for the decision log's row, written before the
+    # response is sent.
+    request.state.scored = score_payment(
+        request.state.fields,
+        request.state.ignored,
+        request.app.state.scorer,
+        request.app.state.thresholds,
+    )
 
     raise ApiError(
         503,

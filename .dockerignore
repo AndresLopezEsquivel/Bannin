@@ -4,3 +4,4 @@
 !uv.lock
 !.python-version
 !src/
+!config/thresholds.toml
