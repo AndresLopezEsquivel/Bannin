@@ -2,7 +2,7 @@
 # Guide: https://docs.astral.sh/uv/guides/integration/docker/
 
 # Stage 1: install the app and its dependencies into /app/.venv.
-FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS builder
+FROM python:3.15-slim-trixie@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS builder
 # The base image has no uv. Later instructions need it.
 # We copy it from Astral's official uv image on GitHub's registry.
 COPY --from=ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 /uv /bin/uv
@@ -33,7 +33,7 @@ COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
 # Stage 2: the final image. Keeps only .venv; leaves out uv, the source code and dev tools.
-FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
+FROM python:3.15-slim-trixie@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 # Names the repository the image is built from. GitHub's registry reads it to
 # link the image to that repository when the image is first pushed.
 # https://docs.github.com/en/packages/learn-github-packages/connecting-a-repository-to-a-package
