@@ -85,7 +85,7 @@ def test_app_loads_keys_at_startup(monkeypatch, restore_keys):
             },
             headers={"Authorization": f"Bearer {KEY_1}"},
         )
-    assert response.status_code == 503  # the key and the request were accepted
+    assert response.status_code == 200  # the key and the request were accepted
     assert app.state.thresholds.version == "thresholds-v1"
 
 

@@ -127,8 +127,8 @@ jobs:
       # Calls /health from the runner (not inside a container), through the published port.
       - name: Call /health
         run: curl --fail --silent --show-error http://127.0.0.1:8000/health
-      # The key check through the real server: no key gets 401; the key
-      # with a valid request gets 503 (nothing is scored yet).
+      # The key check and scoring through the real server: no key gets
+      # 401; the key with a valid request gets 200 and a decision.
       - name: Call /score without and with the key
         run: |
           key=$(sed -n 's/^BANNIN_API_KEYS=key_01=//p' .env)
@@ -136,7 +136,7 @@ jobs:
           body='{"payment_id": "pay_001", "amount": 1000, "currency": "USD", "card_id": "card_abc"}'
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d "$body" "$url")" = 401
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d "$body" \
-            -H "Authorization: Bearer $key" "$url")" = 503
+            -H "Authorization: Bearer $key" "$url")" = 200
       # Fails if the app runs as root.
       - name: Check the app doesn't run as root
         run: |
@@ -195,7 +195,7 @@ jobs:
           body='{"payment_id": "pay_001", "amount": 1000, "currency": "USD", "card_id": "card_abc"}'
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d "$body" "$url")" = 401
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d "$body" \
-            -H "Authorization: Bearer $key" "$url")" = 503
+            -H "Authorization: Bearer $key" "$url")" = 200
       - name: Check the app doesn't run as root
         run: test "$(docker exec app id -u)" != 0
       - name: Show the app logs
