@@ -103,8 +103,8 @@ jobs:
       - name: Lint the shell scripts with ShellCheck
         run: uvx --from shellcheck-py==0.11.0.1 shellcheck scripts/*.sh
 
-  # Builds the image and starts the app and Postgres with compose.yaml,
-  # as on a developer's machine. Docker and Compose come with the runner.
+  # Builds the image and starts the app with compose.yaml, as on a
+  # developer's machine. Docker and Compose come with the runner.
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -113,15 +113,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # A new random password and API key for each run. The values are
-      # never printed, and the key is masked in case a later step prints it.
-      - name: Write a random Postgres password and API key to .env
+      # A new random API key for each run. It's never printed, and it's
+      # masked in case a later step prints it.
+      - name: Write a random API key to .env
         run: |
           key="bn_$(openssl rand -hex 24)"
           echo "::add-mask::$key"
-          printf 'POSTGRES_PASSWORD=%s\nBANNIN_API_KEYS=key_01=%s\n' \
-            "$(openssl rand -hex 24)" "$key" > .env
-      # Returns once both health checks (app's and db's) pass; fails if they don't within 60s.
+          printf 'BANNIN_API_KEYS=key_01=%s\n' "$key" > .env
+      # Returns once the app's health check passes; fails if it doesn't within 60s.
       - name: Build and start the containers
         run: docker compose up --build --wait --wait-timeout 60
       # Calls /health from the runner (not inside a container), through the published port.
@@ -146,9 +145,9 @@ jobs:
       - name: Show the container logs
         if: failure()
         run: docker compose logs
-      - name: Stop and delete the containers and the volume
+      - name: Stop and delete the container
         if: always()
-        run: docker compose down -v
+        run: docker compose down
 
   # Builds the arm64 image that the AWS instance runs, and checks it. On a
   # push to main, also publishes it to GitHub's container registry.
