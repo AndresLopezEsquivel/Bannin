@@ -112,22 +112,25 @@ def test_invalid_field_gets_400_with_the_field():
     }
 
 
-def test_valid_request_gets_503_until_scoring_exists():
+def test_valid_request_gets_the_decision():
     response = client.post("/score", json=VALID, headers=AUTH)
-    assert response.status_code == 503
-    assert error_of(response)["code"] == "service_unavailable"
+    assert response.status_code == 200
+    assert response.json()["payment_id"] == VALID["payment_id"]
+    assert response.json()["decision"] == "approve"
 
 
-def test_invalid_optional_field_still_gets_503():
+def test_invalid_optional_field_is_listed_as_ignored():
     body = {**VALID, "card_bin": "4242", "colour": "red"}
     response = client.post("/score", json=body, headers=AUTH)
-    assert response.status_code == 503
+    assert response.status_code == 200
+    ignored = [item["field"] for item in response.json()["ignored_fields"]]
+    assert ignored == ["card_bin", "colour"]
 
 
 def test_body_at_the_size_limit_is_read():
     # Trailing spaces are valid JSON, so this passes every check.
     body = json.dumps(VALID).encode().ljust(65_536)
-    assert client.post("/score", content=body, headers=AUTH).status_code == 503
+    assert client.post("/score", content=body, headers=AUTH).status_code == 200
 
 
 def test_body_over_the_size_limit_gets_413():

@@ -19,10 +19,11 @@ updates:
     commit-message:
       prefix: build
 
-  # The Postgres image in compose.yaml, and the Caddy image in the
-  # instance's infra/app/compose.yaml.
+  # The Caddy image in the instance's infra/app/compose.yaml. The
+  # compose.yaml in the repo root only builds the app, so it has no image
+  # to update.
   - package-ecosystem: docker-compose
-    directories: ["/", "/infra/app"]
+    directories: ["/infra/app"]
     schedule:
       interval: weekly
     cooldown:

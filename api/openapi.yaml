@@ -76,8 +76,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '413':
           $ref: '#/components/responses/PayloadTooLarge'
         '500':
@@ -101,7 +99,7 @@ components:
           description: >
             The merchant's ID for this payment attempt. Unique to one
             attempt: a retry of the same purchase gets a new ID. Sending
-            an ID that was already scored returns the original decision.
+            an ID that was already scored scores it again.
           minLength: 1
           maxLength: 255
           pattern: '\S'  # at least one non-space character
@@ -280,7 +278,7 @@ components:
           properties:
             type:
               type: string
-              enum: [invalid_request, authentication, idempotency, server_error]
+              enum: [invalid_request, authentication, server_error]
             code:
               type: string
               enum:
@@ -290,7 +288,6 @@ components:
                 - body_too_large       # over 65536 bytes
                 - api_key_missing
                 - api_key_invalid
-                - payment_id_reused    # same payment_id, different fields
                 - internal_error
                 - service_unavailable  # can't score right now; retry later
             message:
@@ -325,7 +322,7 @@ components:
                   message: amount must be a whole number from 1 to 99999999.
                   field: amount
     Unauthorized:
-      description: The API key is missing or invalid. The request was not scored or logged.
+      description: The API key is missing or invalid. The request was not scored.
       headers:
         WWW-Authenticate:
           description: Always `Bearer`, the scheme the API expects.
@@ -344,27 +341,10 @@ components:
                   type: authentication
                   code: api_key_missing
                   message: 'Send an API key as `Authorization: Bearer <key>`.'
-    Conflict:
-      description: >
-        This payment_id was already scored with different fields. Use a
-        new payment_id for a new payment attempt.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            payment_id_reused:
-              summary: A payment_id was resent with a different amount
-              value:
-                error:
-                  type: idempotency
-                  code: payment_id_reused
-                  message: This payment_id was already scored with different fields.
-                  field: payment_id
     PayloadTooLarge:
       description: >
         The body is over 65536 bytes (64 KiB), whatever the
-        Content-Length header says. The request was not scored or logged.
+        Content-Length header says. The request was not scored.
       content:
         application/json:
           schema:
@@ -388,8 +368,7 @@ components:
     ServiceUnavailable:
       description: >
         Bannin can't score payments right now, and no decision was made.
-        Retrying with the same payment_id is safe: if the payment was
-        already scored, the original decision is returned.
+        Retrying with the same payment_id is safe.
       content:
         application/json:
           schema:

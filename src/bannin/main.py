@@ -5,7 +5,7 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import NoReturn
+from typing import Any
 
 from fastapi import FastAPI, Request
 
@@ -95,18 +95,15 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# response_model=None: FastAPI builds no response schema from the return
-# type, since the route always raises for now (NoReturn).
+# response_model=None: FastAPI doesn't build or check a response schema
+# from the return type; api/openapi.yaml is the schema.
 @app.post("/score", response_model=None)
-async def score(request: Request) -> NoReturn:
+async def score(request: Request) -> dict[str, Any]:
     """Check the key, then the body's size, then that the body is a
-    JSON object, then the required fields, then score the payment. The
-    decision isn't sent yet: it's logged before it's sent, and the log
-    isn't built, so a scored request gets a 503."""
-    # Kept on the request, so the decision log can record which key was used.
-    request.state.key_id = check_key(
-        request.headers.get("authorization"), request.app.state.keys
-    )
+    JSON object, then the required fields, then score the payment and
+    return the decision. Nothing is stored, so a resent payment ID is
+    scored again."""
+    check_key(request.headers.get("authorization"), request.app.state.keys)
 
     # The body is parsed here rather than by FastAPI, so the key is always
     # checked first and bad JSON gets our 400 instead of FastAPI's 422.
@@ -123,20 +120,9 @@ async def score(request: Request) -> NoReturn:
 
     # Raises a 400 for the first required field that's missing or invalid.
     # Invalid or unrecognized optional fields are only listed as ignored.
-    request.state.fields, request.state.ignored = check_request(body)
+    fields, ignored = check_request(body)
 
-    # Kept on the request for the decision log's row, written before the
-    # response is sent.
-    request.state.scored = score_payment(
-        request.state.fields,
-        request.state.ignored,
-        request.app.state.scorer,
-        request.app.state.thresholds,
+    scored = score_payment(
+        fields, ignored, request.app.state.scorer, request.app.state.thresholds
     )
-
-    raise ApiError(
-        503,
-        "server_error",
-        "service_unavailable",
-        "Bannin can't score payments right now. Retry later.",
-    )
+    return scored.response
