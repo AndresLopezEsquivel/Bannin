@@ -17,3 +17,57 @@ Bannin is being built as a standalone service that the merchant's backend calls 
 The fraud-screening result Bannin provides is a preliminary risk assessment, not the bank's authorization decision. The issuer makes the final authorization decision based on its own checks, which may include available funds or credit, and card status.
 
 Some large merchants build their own fraud-detection service in-house; others call a third-party API such as [Sift](https://sift.com/) or [Signifyd](https://www.signifyd.com/); and payment processors such as Stripe integrate fraud detection directly into their payment flow through products like [Stripe Radar](https://stripe.com/radar), so the merchant never calls a separate service. Bannin follows the in-house model, serving a single merchant, but exposes an API similar to that of a third-party service, allowing the merchant's backend to call it over the network like any other service.
+
+### Application Request Flow
+
+Currently, a payment request sent by the merchant's backend to `POST /score` passes through six stages in Bannin's application: API key authentication, request body checks, request validation, feature building, scoring, and decision-making. These stages form the foundation of the application's request-processing flow, but they will continue to evolve as development progresses.
+
+#### 1. API Key Authentication
+
+The application requires every request to include an API key in the `Authorization` header using the `Bearer` authentication scheme. This check is implemented in `src/bannin/auth.py`.
+
+If the header is missing or doesn't use the `Bearer` scheme, the application responds with HTTP `401 Unauthorized` and the error code `api_key_missing`. If the provided key doesn't match any of the stored keys, it responds with the same status code and the error code `api_key_invalid`.
+
+The keys are loaded once, when the application starts. When deployed on AWS, they're stored as `SecureString` parameters in AWS Systems Manager Parameter Store; locally, they're read from the `BANNIN_API_KEYS` environment variable. Up to two keys are valid at once, so a key can be replaced without downtime.
+
+#### 2. Request Body Checks
+
+Before validating the request's fields, the application performs two checks on the request body.
+
+**Size check:** The application enforces a maximum request body size of 64 KiB. If the declared `Content-Length` exceeds this limit, the request is rejected immediately with HTTP `413 Content Too Large` and the error code `body_too_large`, without reading the body. Otherwise, the application counts the bytes as they arrive and rejects the request as soon as the limit is exceeded.
+
+**JSON format check:** A body that isn't valid JSON, or is valid JSON but not an object (such as an array, string, number, or `null`), is rejected with HTTP `400 Bad Request` and the error code `body_invalid`.
+
+When deployed on AWS, Caddy, the web server in front of the application, also limits the request body size, but at 1 MiB rather than 64 KiB. It rejects excessively large requests before they reach the application, with an empty `413` response. The application's stricter 64 KiB limit is tailored to the expected size of scoring requests.
+
+#### 3. Request Validation
+
+Bannin's API contract is defined in `api/openapi.yaml`, while request validation is implemented in `src/bannin/validation.py`. The validator checks required fields first, followed by optional fields.
+
+**Required fields:** Every request must include `payment_id`, `amount`, `currency`, and `card_id`. These fields are validated in that order. If a field is missing or contains an invalid value, validation stops at the first failure and the application responds with HTTP `400 Bad Request`. The error code is either `parameter_missing` or `parameter_invalid`, and the response identifies the field that caused the error.
+
+**Optional fields:** Additional information, such as email addresses, IP addresses, and billing or shipping addresses, can be included to provide more context for fraud detection. Invalid or unrecognized optional fields don't cause the request to fail. Instead, they're added to the `ignored_fields` list in the response and marked as either `invalid` or `unrecognized`, depending on the reason they were ignored. Only the field name and reason are included; the original value is never returned.
+
+Once a request passes validation, its fraud risk is assessed in three stages: feature building, scoring, and decision-making.
+
+#### 4. Feature Building
+
+`src/bannin/features.py` currently returns an empty dictionary (`{}`) on every call. As development progresses, this stage will compute the features used as input to the machine-learning model.
+
+#### 5. Scoring
+
+The scorer in `src/bannin/scorer.py` is currently a placeholder that returns a fixed score of `12.37` on every call, without reading or using any features. It will eventually be replaced by a machine-learning model that consumes the computed features and produces a fraud score.
+
+#### 6. Decision-Making
+
+Decision-making currently uses a simple threshold-based approach, implemented in `src/bannin/decision.py`. The thresholds are defined in `config/thresholds.toml` and determine whether a transaction should be approved, sent for review, or declined. They're read once, when the application starts, so changing them requires a restart and a new `version` in the file. This approach is a starting point and will evolve as development progresses.
+
+The current thresholds are:
+
+| Fraud score | Decision |
+|---|---|
+| 85 or above | Decline |
+| 60 to below 85 | Review |
+| Below 60 | Approve |
+
+Since the current scorer always returns `12.37`, all validated transactions that reach this stage are currently approved.
