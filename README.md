@@ -71,3 +71,65 @@ The current thresholds are:
 | Below 60 | Approve |
 
 Since the current scorer always returns `12.37`, all validated transactions that reach this stage are currently approved.
+
+#### Response Format
+
+For a valid request, `POST /score` returns HTTP `200 OK` with the fraud assessment. Requests that are rejected return an error response with the appropriate HTTP status code and a standardized error object.
+
+**Successful response:** A valid request such as:
+
+```json
+{
+  "payment_id": "pay_1",
+  "amount": 1000,
+  "currency": "USD",
+  "card_id": "card_1",
+  "colour": "blue"
+}
+```
+
+returns HTTP `200 OK` with the following response:
+
+```json
+{
+  "payment_id": "pay_1",
+  "decision": "approve",
+  "score": 12.37,
+  "reasons": [],
+  "ignored_fields": [
+    {
+      "field": "colour",
+      "code": "unrecognized",
+      "message": "is not a field Bannin uses"
+    }
+  ]
+}
+```
+
+The decision is currently always `approve` and the score is always `12.37`, reflecting the placeholder scorer. The `reasons` list remains empty until the scoring model is implemented. The `ignored_fields` list is empty when all provided fields are recognized and valid.
+
+**Error response:** Rejected requests return HTTP `400`, `401`, `413`, or `500`, depending on the cause. All error responses from `POST /score` follow the same structure, implemented in `src/bannin/errors.py`:
+
+```json
+{
+  "error": {
+    "type": "invalid_request",
+    "code": "parameter_missing",
+    "message": "amount is required.",
+    "field": "amount"
+  }
+}
+```
+
+The `field` property is included only when the error is associated with a specific field.
+
+The following table summarizes the error types and codes returned by `POST /score`:
+
+| HTTP status | `type` | `code` |
+|---|---|---|
+| `401 Unauthorized` | `authentication` | `api_key_missing`, `api_key_invalid` (includes `WWW-Authenticate: Bearer` header) |
+| `413 Content Too Large` | `invalid_request` | `body_too_large` |
+| `400 Bad Request` | `invalid_request` | `body_invalid`, `parameter_missing`, `parameter_invalid` |
+| `500 Internal Server Error` | `server_error` | `internal_error` (for unexpected errors; no internal details are returned) |
+
+Unknown paths and unsupported methods return the web framework's default `404` and `405` responses, which don't follow this structure.
