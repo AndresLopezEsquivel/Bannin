@@ -24,7 +24,7 @@ Bannin currently runs as a single service on one AWS EC2 instance. The instance 
 
 The project also has a CI/CD pipeline built with GitHub Actions. On every push to `main`, it runs the tests, builds the application's container image, and publishes it to GitHub's container registry. Its deployment stage then checks whether Bannin's EC2 instance is running and, if it is, deploys the new image; otherwise, deployment is skipped. Since the project is still in its early stages, the infrastructure is provisioned with Terraform only when needed and torn down afterward to avoid unnecessary costs. If no instance is running when a change is pushed, the new image is still published, and the next instance created starts it automatically.
 
-The following sections walk through this architecture from the inside out: first, how the application handles a request, and then the AWS infrastructure it runs on.
+The following sections walk through this architecture from the inside out: first, how the application handles a request, then the AWS infrastructure it runs on, and finally the CI/CD pipeline that tests and deploys it.
 
 ### Application Request Flow
 
@@ -171,3 +171,40 @@ Both roles are created manually in the AWS console. `infra/iam/README.md` lists 
 #### Cost Controls
 
 `infra/costs/` sets a monthly budget of USD 1. It sends email alerts when spending passes half the budget, when it passes the full budget, and when the full budget is forecast to be exceeded. After `scripts/infra-app.sh down` destroys the app stack, it checks the region for any resource still billed by the hour and fails if it finds one.
+
+### CI/CD Pipeline
+
+The CI/CD pipeline is defined in `.github/workflows/ci.yml` and runs on every pull request and every push to `main`. Pull requests run only the checks, while pushes to `main` also publish the image and deploy it.
+
+#### Checks
+
+Five jobs run in parallel, each covering a different part of the repository:
+
+| Job | What it checks |
+|---|---|
+| `api-spec` | `api/openapi.yaml` is a valid OpenAPI document, and its examples match their schemas. |
+| `app` | The Python code passes the linter and formatter (Ruff), and the tests pass (pytest). |
+| `terraform` | Both Terraform stacks are formatted and valid. |
+| `shell` | The shell scripts pass ShellCheck. |
+| `container` | The app starts with Docker Compose and answers `/health`. It rejects a request with no API key with `401` and scores a valid request with `200`. The app doesn't run as root. |
+
+#### Image
+
+Once all five checks pass, the `image` job builds the application's container image on an arm64 runner. That's the same architecture as the EC2 instance, so no emulation is needed. The job confirms that the image is built for arm64 and repeats the `container` job's checks against it. On a push to `main`, it then publishes the image to GitHub's container registry with two tags: the commit hash and `main`.
+
+#### Deployment
+
+The `deploy` job runs only on pushes to `main`, after the image is published. It gets short-lived AWS credentials through OIDC and runs `scripts/deploy.sh` with the commit hash. The script looks for a running instance tagged `bannin-app`. If there's none, it logs that, and the job passes. Otherwise, it uses Systems Manager to run commands on the instance in four steps:
+
+1. Set `IMAGE_TAG` to the commit hash.
+2. Pull that image.
+3. Replace the application container.
+4. Wait for its health check to pass.
+
+The job fails if any of these steps fails.
+
+#### Public Logs
+
+The repository is public, so its Actions logs are too. The pipeline masks values that shouldn't appear in them, such as the instance ID, the AWS role's ID, and the test API key. GitHub then shows each of them as `***`.
+
+Dependabot opens weekly pull requests to update the dependencies: Python packages, Docker images, GitHub Actions and Terraform providers. These pull requests go through the same checks.
