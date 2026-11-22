@@ -208,3 +208,52 @@ The job fails if any of these steps fails.
 The repository is public, so its Actions logs are too. The pipeline masks values that shouldn't appear in them, such as the instance ID, the AWS role's ID, and the test API key. GitHub then shows each of them as `***`.
 
 Dependabot opens weekly pull requests to update the dependencies: Python packages, Docker images, GitHub Actions and Terraform providers. These pull requests go through the same checks.
+
+## Running on AWS
+
+Running Bannin on AWS takes a one-time setup, done mostly in the AWS console, followed by two scripts that create and destroy the infrastructure. The detailed console steps are in `infra/README.md` and `infra/iam/README.md`; this section gives the order. All commands run from the repository root and need the AWS CLI, Terraform, `curl` and `openssl`.
+
+### One-Time Setup
+
+1. **Terraform's IAM user.** Signed in as a user allowed to manage IAM, create the `bannin-terraform` policy from `infra/iam/terraform-policy.json`, and an IAM user that has it. That policy doesn't let Terraform create or change IAM users, roles or policies, so those are set up by hand. Then sign in to the AWS CLI as this user with `aws login`.
+2. **The instance role and the first API key.** Create the `bannin-app` role, then store the first API key in Parameter Store as the `SecureString` parameter `/bannin/api-keys/key_01`.
+3. **The deployment role.** Create the `bannin-ci` role, which GitHub Actions assumes through OIDC. Then add its ARN and ID to the repository as the secrets `AWS_ROLE_ARN` and `AWS_ROLE_ID`.
+4. **The cost budget.** Create `infra/costs/terraform.tfvars` with the email address that receives the alerts (Git ignores this file), then run:
+
+   ```bash
+   terraform -chdir=infra/costs init
+   scripts/infra-costs.sh up
+   ```
+
+   This stack stays in place between sessions.
+5. **The app stack.** Run `terraform -chdir=infra/app init` once.
+
+### Starting the Service
+
+```bash
+scripts/infra-app.sh up
+```
+
+Terraform shows what it will create and waits for `yes`. The script then waits until `https://<ip>/health` responds, which takes about 2 minutes on first boot. It then prints the service's URL, the image it's running, and who issued its certificate.
+
+To test without using up Let's Encrypt's rate limits, run `TF_VAR_acme_ca=staging scripts/infra-app.sh up` instead. Staging certificates aren't trusted by clients, so requests then need `-k`.
+
+### Sending a Request
+
+```bash
+scripts/demo.sh https://<ip>
+```
+
+The script asks for the API key without showing it, sends a made-up payment to `POST /score`, and prints the status and the response body. Add `-k` after the URL if the service uses a staging or self-signed certificate.
+
+While the instance is running, every push to `main` deploys to it, as described in [CI/CD Pipeline](#cicd-pipeline).
+
+### Tearing Down
+
+```bash
+scripts/infra-app.sh down
+```
+
+Terraform shows what it will delete and waits for `yes`. The script then runs `scripts/check-leftovers.sh`, which fails if any instance, EBS volume or Elastic IP is still in `us-east-1`. The cost budget, the IAM roles and the API keys stay, so the next `up` reuses them.
+
+Terraform's state is stored locally, in a `terraform.tfstate` file in each stack, which Git ignores. Losing that file means Terraform no longer knows what that stack created.
