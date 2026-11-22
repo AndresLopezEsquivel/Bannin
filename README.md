@@ -24,6 +24,8 @@ Bannin currently runs as a single service on one AWS EC2 instance. The instance 
 
 The project also has a CI/CD pipeline built with GitHub Actions. On every push to `main`, it runs the tests, builds the application's container image, and publishes it to GitHub's container registry. Its deployment stage then checks whether Bannin's EC2 instance is running and, if it is, deploys the new image; otherwise, deployment is skipped. Since the project is still in its early stages, the infrastructure is provisioned with Terraform only when needed and torn down afterward to avoid unnecessary costs. If no instance is running when a change is pushed, the new image is still published, and the next instance created starts it automatically.
 
+The following sections walk through this architecture from the inside out: first, how the application handles a request, and then the AWS infrastructure it runs on.
+
 ### Application Request Flow
 
 Currently, a payment request sent by the merchant's backend to `POST /score` passes through six stages in Bannin's application: API key authentication, request body checks, request validation, feature building, scoring, and decision-making. These stages form the foundation of the application's request-processing flow, but they will continue to evolve as development progresses.
@@ -139,3 +141,33 @@ The following table summarizes the error types and codes returned by `POST /scor
 | `500 Internal Server Error` | `server_error` | `internal_error` (for unexpected errors; no internal details are returned) |
 
 Unknown paths and unsupported methods return the web framework's default `404` and `405` responses, which don't follow this structure.
+
+### AWS Infrastructure
+
+Bannin's AWS infrastructure is defined with Terraform in the `infra/` directory and split into two independent stacks: `infra/costs/`, which holds a monthly cost budget and stays in place, and `infra/app/`, which holds the service itself and is created and destroyed with `scripts/infra-app.sh`. All resources run in the `us-east-1` region and are tagged `Project = bannin`.
+
+#### Instance
+
+The service runs on a single `t4g.micro` EC2 instance in the account's default VPC. The instance has no SSH key; when shell access is needed, it goes through AWS Systems Manager Session Manager instead.
+
+When the instance boots for the first time, cloud-init, the tool that runs an instance's setup instructions on first boot, installs Docker, writes the Docker Compose and Caddy configuration files, and starts two containers: Caddy and the application. The application container runs the image tagged `main`, which always points to the most recent image built from the `main` branch. Each later deployment replaces it with the image built from a specific commit.
+
+#### Network and HTTPS
+
+The instance's security group allows inbound traffic on a single port: TCP 443, for HTTPS. Port 80 is closed, so nothing is served over plain HTTP. The application listens on port 8000 and is reachable only from within the instance, so external requests reach it only through Caddy.
+
+Since the service doesn't have a domain name yet, Caddy requests a certificate from Let's Encrypt for the instance's public IP address. If that fails, it falls back to a self-signed certificate, which clients don't trust by default.
+
+#### Permissions
+
+Each part of the infrastructure has only the permissions it needs:
+
+- **The instance** uses the `bannin-app` IAM role. It can read the API keys from Parameter Store and register with Systems Manager, which deployments and Session Manager rely on.
+- **GitHub Actions** assumes the `bannin-ci` role through OpenID Connect (OIDC). It gets short-lived credentials, so no AWS keys are stored in GitHub. Only workflows running on `main` can assume the role, and the role can only find the instance and run the deployment command on it.
+- **Terraform** runs as an IAM user whose policy, `infra/iam/terraform-policy.json`, limits it to the resources in these two stacks.
+
+Both roles are created manually in the AWS console. `infra/iam/README.md` lists the steps.
+
+#### Cost Controls
+
+`infra/costs/` sets a monthly budget of USD 1. It sends email alerts when spending passes half the budget, when it passes the full budget, and when the full budget is forecast to be exceeded. After `scripts/infra-app.sh down` destroys the app stack, it checks the region for any resource still billed by the hour and fails if it finds one.
