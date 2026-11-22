@@ -18,6 +18,12 @@ The fraud-screening result Bannin provides is a preliminary risk assessment, not
 
 Some large merchants build their own fraud-detection service in-house; others call a third-party API such as [Sift](https://sift.com/) or [Signifyd](https://www.signifyd.com/); and payment processors such as Stripe integrate fraud detection directly into their payment flow through products like [Stripe Radar](https://stripe.com/radar), so the merchant never calls a separate service. Bannin follows the in-house model, serving a single merchant, but exposes an API similar to that of a third-party service, allowing the merchant's backend to call it over the network like any other service.
 
+## Current Architecture
+
+Bannin currently runs as a single service on one AWS EC2 instance. The instance runs two Docker containers managed by Docker Compose: Caddy, which terminates HTTPS and forwards requests to the application, and the application itself, a Python service built with FastAPI.
+
+The project also has a CI/CD pipeline built with GitHub Actions. On every push to `main`, it runs the tests, builds the application's container image, and publishes it to GitHub's container registry. Its deployment stage then checks whether Bannin's EC2 instance is running and, if it is, deploys the new image; otherwise, deployment is skipped. Since the project is still in its early stages, the infrastructure is provisioned with Terraform only when needed and torn down afterward to avoid unnecessary costs. If no instance is running when a change is pushed, the new image is still published, and the next instance created starts it automatically.
+
 ### Application Request Flow
 
 Currently, a payment request sent by the merchant's backend to `POST /score` passes through six stages in Bannin's application: API key authentication, request body checks, request validation, feature building, scoring, and decision-making. These stages form the foundation of the application's request-processing flow, but they will continue to evolve as development progresses.
