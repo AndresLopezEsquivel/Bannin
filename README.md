@@ -28,7 +28,11 @@ The following sections walk through this architecture from the inside out: first
 
 ### Application Request Flow
 
-Currently, a payment request sent by the merchant's backend to `POST /score` passes through six stages in Bannin's application: API key authentication, request body checks, request validation, feature building, scoring, and decision-making. These stages form the foundation of the application's request-processing flow, but they will continue to evolve as development progresses.
+Currently, a payment request sent by the merchant's backend to `POST /score` passes through six stages in Bannin's application: API key authentication, request body checks, request validation, feature building, scoring, and decision-making (see Figure 1). These stages form the foundation of the application's request-processing flow, but they will continue to evolve as development progresses.
+
+![A request to POST /score passes through six stages: API key authentication, request body checks, request validation, and then the fraud assessment, made of feature building, scoring and decision-making.](docs/architecture-app.drawio.svg)
+
+*Figure 1. The six stages a request to `POST /score` passes through in Bannin's application; the last three form the fraud assessment. The figure shows the path of an accepted request; the error responses of the first three stages are described in their sections below.*
 
 #### 1. API Key Authentication
 
@@ -56,7 +60,7 @@ Bannin's API contract is defined in `api/openapi.yaml`, while request validation
 
 **Optional fields:** Additional information, such as email addresses, IP addresses, and billing or shipping addresses, can be included to provide more context for fraud detection. Invalid or unrecognized optional fields don't cause the request to fail. Instead, they're added to the `ignored_fields` list in the response and marked as either `invalid` or `unrecognized`, depending on the reason they were ignored. Only the field name and reason are included; the original value is never returned.
 
-Once a request passes validation, its fraud risk is assessed in three stages: feature building, scoring, and decision-making.
+Once a request passes validation, its fraud risk is assessed in three stages: feature building, scoring, and decision-making (see Figure 1).
 
 #### 4. Feature Building
 
