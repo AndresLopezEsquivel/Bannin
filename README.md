@@ -237,7 +237,7 @@ Running Bannin on AWS takes a one-time setup, done mostly in the AWS console, fo
 
 ### One-Time Setup
 
-1. **Terraform's IAM user.** Signed in as a user allowed to manage IAM, create the `bannin-terraform` policy from `infra/iam/terraform-policy.json`, and an IAM user that has it. That policy doesn't let Terraform create or change IAM users, roles or policies, so those are set up by hand. Then sign in to the AWS CLI as this user with `aws login`.
+1. **Terraform's IAM user.** Signed in as a user allowed to manage IAM, create the `bannin-terraform` policy from `infra/iam/terraform-policy.json`, and an IAM user that has it (see [Terraform's IAM user](infra/iam/README.md#terraforms-iam-user)). That policy doesn't let Terraform create or change IAM users, roles or policies, so those are set up by hand. Then sign in to the AWS CLI as this user with `aws login`.
 2. **The instance role and the first API key.** Create the `bannin-app` role, then store the first API key in Parameter Store as the `SecureString` parameter `/bannin/api-keys/key_01`.
 3. **The deployment role.** Create the `bannin-ci` role, which GitHub Actions assumes through OIDC. Then add its ARN and ID to the repository as the secrets `AWS_ROLE_ARN` and `AWS_ROLE_ID`.
 4. **The cost budget.** Create `infra/costs/terraform.tfvars` with the email address that receives the alerts (Git ignores this file), then run:

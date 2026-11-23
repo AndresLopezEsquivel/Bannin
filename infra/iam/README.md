@@ -1,12 +1,53 @@
 # IAM
 
-A user with rights to manage IAM sets these up by hand in the AWS
-console, so the `terraform` user never gets rights to create or change
-IAM users, roles or policies.
+Bannin's IAM resources, each set up by hand in the AWS console.
+Terraform's IAM user isn't allowed to create or change IAM users,
+roles or policies, so a user with rights to manage IAM creates them.
+
+| Identity | Used by | Section |
+|---|---|---|
+| An IAM user with the `bannin-terraform` policy | Terraform, run from your machine | [Terraform's IAM user](#terraforms-iam-user) |
+| The `bannin-app` role, through its instance profile | The service's EC2 instance, to read its API keys | [The `bannin-app` role](#the-bannin-app-role) |
+| The `bannin-ci` role, through OIDC | GitHub Actions, to deploy | [The `bannin-ci` role](#the-bannin-ci-role) |
+
+## Terraform's IAM user
+
+Terraform runs as an IAM user with two policies: `bannin-terraform`
+(from `terraform-policy.json`), and the AWS managed policy
+`SignInLocalDevelopmentAccess`, which lets the user sign in to the AWS
+CLI with `aws login`. The user has console access and no access keys.
+
+Do these steps in the AWS console, signed in as a user allowed to
+create IAM users and policies.
+
+1. Open the IAM console: search for **IAM** in the console's top
+   search bar and select it.
+2. In the left menu, select **Policies**, then **Create policy**.
+3. Select the **JSON** tab, replace the policy in the editor with the
+   contents of `terraform-policy.json`, then select **Next**.
+4. For **Policy name**, enter `bannin-terraform`.
+5. Under **Add tags**, add the key `Project` with the value `bannin`,
+   then select **Create policy**.
+6. In the left menu, select **Users**, then **Create user**.
+7. For **User name**, enter a name of your choice.
+8. Select **Provide user access to the AWS Management Console**, then
+   **I want to create an IAM user**. Choose a password, then select
+   **Next**.
+9. Under **Permissions options**, select **Attach policies directly**.
+   Search for `bannin-terraform` and `SignInLocalDevelopmentAccess`,
+   select both checkboxes, then select **Next**.
+10. Under **Tags**, add the key `Project` with the value `bannin`,
+    then select **Create user**.
+11. Select the new user, open the **Security credentials** tab, and
+    under **Multi-factor authentication (MFA)** select **Assign MFA
+    device**. Follow the console's steps.
+
+Then, on your machine, run `aws login` and sign in as this user in
+the browser that opens.
 
 ## `terraform-policy.json`
 
-The `terraform` user's policy, `bannin-terraform`. Whenever the file
+Terraform's IAM user's policy, `bannin-terraform`. Whenever the file
 changes, copy it into the policy. Do these steps in the AWS console,
 signed in as a user allowed to edit IAM policies.
 
