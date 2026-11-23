@@ -14,8 +14,8 @@ Terraform code for Bannin's AWS resources.
 1. Whenever `iam/terraform-policy.json` changes, a user allowed to
    edit IAM policies copies it into the `bannin-terraform` policy (see
    [`iam/README.md`](iam/README.md)).
-2. Sign in with the AWS CLI as a user whose only policy is
-   `bannin-terraform`.
+2. Sign in with the AWS CLI as the IAM user described in
+   [`iam/README.md`](iam/README.md#terraforms-iam-user).
 3. Run each stack with its script: `up` creates or updates it, `down`
    deletes it.
 
