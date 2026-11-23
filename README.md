@@ -11,6 +11,7 @@
   - [AWS Infrastructure](#aws-infrastructure)
   - [CI/CD Pipeline](#cicd-pipeline)
 - [Running on AWS](#running-on-aws)
+- [Repository Layout](#repository-layout)
 
 ## The Problem
 
@@ -279,3 +280,22 @@ scripts/infra-app.sh down
 Terraform shows what it will delete and waits for `yes`. The script then runs `scripts/check-leftovers.sh`, which fails if any instance, EBS volume or Elastic IP is still in `us-east-1`. The cost budget, the IAM roles and the API keys stay, so the next `up` reuses them.
 
 Terraform's state is stored locally, in a `terraform.tfstate` file in each stack, which Git ignores. Losing that file means Terraform no longer knows what that stack created.
+
+## Repository Layout
+
+| Path | Contents |
+|---|---|
+| `src/bannin/` | The FastAPI application: key check, validation, stub scorer and decision |
+| `tests/` | The pytest tests |
+| `api/openapi.yaml` | The API contract for `POST /score` |
+| `config/thresholds.toml` | The decision thresholds and their version |
+| `Dockerfile`, `compose.yaml` | The image, and running it locally with Docker Compose |
+| `pyproject.toml`, `uv.lock` | Dependencies, managed with uv |
+| `infra/` | The Terraform stacks (`app/`, which also holds the instance's Caddy and Compose files, and `costs/`), and the IAM resources set up by hand (`iam/`) |
+| `scripts/` | Scripts that create, deploy to, test and tear down the AWS infrastructure, plus a check of the API's examples |
+| `.github/workflows/ci.yml` | The CI/CD pipeline |
+| `docs/` | The architecture diagrams |
+
+## License
+
+Bannin is released under the MIT License; see [`LICENSE`](LICENSE).
