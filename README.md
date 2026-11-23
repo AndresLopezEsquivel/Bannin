@@ -146,15 +146,19 @@ Unknown paths and unsupported methods return the web framework's default `404` a
 
 Bannin's AWS infrastructure is defined with Terraform in the `infra/` directory and split into two independent stacks: `infra/costs/`, which holds a monthly cost budget and stays in place, and `infra/app/`, which holds the service itself and is created and destroyed with `scripts/infra-app.sh`. All resources run in the `us-east-1` region and are tagged `Project = bannin`.
 
+![A single EC2 instance in a public subnet of the default VPC in us-east-1; requests from the merchant's backend and the instance's calls to Parameter Store both pass through the internet gateway.](docs/architecture-aws.drawio.svg)
+
+*Figure 2. Bannin's AWS infrastructure: a single EC2 instance in a public subnet of the default VPC, in `us-east-1`. Its security group allows inbound traffic only on TCP port 443. Requests from the merchant's backend, and the instance's calls to Parameter Store, both pass through the VPC's internet gateway.*
+
 #### Instance
 
-The service runs on a single `t4g.micro` EC2 instance in the account's default VPC. The instance has no SSH key; when shell access is needed, it goes through AWS Systems Manager Session Manager instead.
+The service runs on a single `t4g.micro` EC2 instance in the account's default VPC (see Figure 2). The instance has no SSH key; when shell access is needed, it goes through AWS Systems Manager Session Manager instead.
 
 When the instance boots for the first time, cloud-init, the tool that runs an instance's setup instructions on first boot, installs Docker, writes the Docker Compose and Caddy configuration files, and starts two containers: Caddy and the application. The application container runs the image tagged `main`, which always points to the most recent image built from the `main` branch. Each later deployment replaces it with the image built from a specific commit.
 
 #### Network and HTTPS
 
-The instance's security group allows inbound traffic on a single port: TCP 443, for HTTPS. Port 80 is closed, so nothing is served over plain HTTP. The application listens on port 8000 and is reachable only from within the instance, so external requests reach it only through Caddy (see Figure 3).
+The instance's security group allows inbound traffic on a single port: TCP 443, for HTTPS (see Figure 2). Port 80 is closed, so nothing is served over plain HTTP. The application listens on port 8000 and is reachable only from within the instance, so external requests reach it only through Caddy (see Figure 3).
 
 Since the service doesn't have a domain name yet, Caddy requests a certificate from Let's Encrypt for the instance's public IP address. If that fails, it falls back to a self-signed certificate, which clients don't trust by default.
 
