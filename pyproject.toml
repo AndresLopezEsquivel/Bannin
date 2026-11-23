@@ -6,8 +6,8 @@ requires-python = ">=3.14"
 # Lower bounds only: uv.lock holds the exact versions that get installed.
 dependencies = [
     "boto3>=1.44.3",
-    "email-validator>=2.3.0",
-    "fastapi>=0.162.0",
+    "email-validator>=2.4.0",
+    "fastapi>=0.163.1",
     "uvicorn>=0.54.0",
 ]
 
@@ -18,9 +18,9 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "httpx2>=2.16.0",
+    "httpx2>=2.16.2",
     "pytest>=9.2.0",
-    "ruff>=0.17.4",
+    "ruff>=0.17.5",
 ]
 
 # Linter and formatter. Rules: E (style errors), F (bugs such as unused
