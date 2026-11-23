@@ -154,9 +154,13 @@ When the instance boots for the first time, cloud-init, the tool that runs an in
 
 #### Network and HTTPS
 
-The instance's security group allows inbound traffic on a single port: TCP 443, for HTTPS. Port 80 is closed, so nothing is served over plain HTTP. The application listens on port 8000 and is reachable only from within the instance, so external requests reach it only through Caddy.
+The instance's security group allows inbound traffic on a single port: TCP 443, for HTTPS. Port 80 is closed, so nothing is served over plain HTTP. The application listens on port 8000 and is reachable only from within the instance, so external requests reach it only through Caddy (see Figure 3).
 
 Since the service doesn't have a domain name yet, Caddy requests a certificate from Let's Encrypt for the instance's public IP address. If that fails, it falls back to a self-signed certificate, which clients don't trust by default.
+
+![Requests to the EC2 instance pass through Caddy on port 443 to the application on port 8000; at startup, the application reads its API keys from Parameter Store.](docs/architecture-ec2.drawio.svg)
+
+*Figure 3. Inside the EC2 instance: Caddy receives HTTPS requests on port 443 and forwards them over plain HTTP to the application on the Docker Compose network. At startup, the application reads its API keys from Parameter Store, using the instance's IAM role.*
 
 #### Permissions
 
