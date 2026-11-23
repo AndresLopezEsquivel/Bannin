@@ -2,6 +2,16 @@
 
 **Bannin is a work in progress.** It is being built as a real-time fraud-detection system that aims to determine whether an online card payment should be approved, reviewed, or declined before the merchant submits it for bank authorization.
 
+## Contents
+
+- [The Problem](#the-problem)
+- [Where Bannin Fits](#where-bannin-fits)
+- [Current Architecture](#current-architecture)
+  - [Application Request Flow](#application-request-flow)
+  - [AWS Infrastructure](#aws-infrastructure)
+  - [CI/CD Pipeline](#cicd-pipeline)
+- [Running on AWS](#running-on-aws)
+
 ## The Problem
 
 Online card fraud is costly for merchants. When a legitimate cardholder disputes a fraudulent charge, the merchant typically loses the goods or services provided, the payment, and an additional chargeback fee. But blocking transactions too aggressively has a cost as well: every legitimate customer turned away represents a lost sale and potentially a lost customer. Merchants therefore need to stop fraud without turning away genuine customers.
